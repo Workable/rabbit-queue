@@ -1,0 +1,14 @@
+{
+  "name": "rabbit-queue",
+  "version": "1.0.0",
+  "description": "AMQP/RabbitMQ queue management library.",
+  "main": "js/index.js",
+  "scripts": {
+    "test": "istanbul test ./node_modules/.bin/_mocha test/* --  -R spec "
+  },
+  "author": "Nikos Kostoulas",
+  "license": "MIT",
+  "engines": {
+    "node": ">=6.0.0"
+  }
+}
