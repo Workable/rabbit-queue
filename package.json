@@ -4,11 +4,20 @@
   "description": "AMQP/RabbitMQ queue management library.",
   "main": "js/index.js",
   "scripts": {
+    "tsc": "tsc -p ts",
+    "tsc:w": "tsc -w -p ts",
     "test": "istanbul test ./node_modules/.bin/_mocha test/* --  -R spec "
   },
   "author": "Nikos Kostoulas",
   "license": "MIT",
   "engines": {
     "node": ">=6.0.0"
-  }
+  },
+  "dependencies": {
+    "amqplib": "^0.4.2",
+    "log4js": "^0.6.38",
+    "node-uuid": "^1.4.7",
+    "uuid": "^2.0.2"
+  },
+  "typings": "js/index"
 }

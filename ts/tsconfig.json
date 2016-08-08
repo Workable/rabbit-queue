@@ -8,7 +8,8 @@
     "preserveConstEnums": true,
     "declaration": true,
     "suppressImplicitAnyIndexErrors": true,
-    "outDir": "../js"
+    "outDir": "../js",
+    "sourceMap": true
   },
   "filesGlob": [
     "./*.ts"

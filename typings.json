@@ -1,7 +1,0 @@
-{
-  "name": "rabbit-queue",
-  "dependencies": {},
-  "globalDependencies": {
-    "node": "registry:dt/node#6.0.0+20160728152422"
-  }
-}

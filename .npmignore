@@ -1,3 +1,5 @@
 ts
 typings
 tslint.json
+coverage
+test
