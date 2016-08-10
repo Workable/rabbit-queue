@@ -3,7 +3,6 @@ import * as amqp from 'amqplib';
 import {getLogger} from './logger';
 import * as assert from 'assert';
 let replyHandlers = {};
-let replyName: string;
 
 export async function createReplyQueue(channel: Channel) {
   await channel.assertQueue('', { exclusive: true })
