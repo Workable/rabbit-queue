@@ -6,9 +6,14 @@
   "scripts": {
     "tsc": "tsc -p ts",
     "tsc:w": "tsc -w -p ts",
-    "test": "istanbul test ./node_modules/.bin/_mocha test/* --  -R spec "
+    "prepublish": "tsc -p ts",
+    "pretest": "tslint ts/**.ts && tsc -p test/ts",
+    "test": "istanbul test ./node_modules/.bin/_mocha test/js/**.js --  -R spec",
+    "test-docker": "docker-compose run rabbit-queue npm run test --coverage",
+    "posttest": "remap-istanbul -i coverage/coverage.json -o coverage/lcov-report -t html"
   },
-  "author": "Nikos Kostoulas",
+  "repository": "Workable/rabbit-queue",
+  "author": "Nikos Kostoulas <kostoulas@workable.com>",
   "license": "MIT",
   "engines": {
     "node": ">=6.0.0"
@@ -16,8 +21,16 @@
   "dependencies": {
     "amqplib": "^0.4.2",
     "log4js": "^0.6.38",
-    "node-uuid": "^1.4.7",
-    "uuid": "^2.0.2"
+    "node-uuid": "^1.4.7"
   },
-  "typings": "js/index"
+  "typings": "js/index",
+  "devDependencies": {
+    "istanbul": "^0.4.4",
+    "mocha": "^3.0.2",
+    "remap-istanbul": "^0.6.4",
+    "should": "^10.0.0",
+    "sinon": "^1.17.5",
+    "tslint": "^3.14.0",
+    "typescript": "^1.8.10"
+  }
 }
