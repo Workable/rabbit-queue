@@ -3,6 +3,13 @@
   "version": "1.0.2",
   "description": "AMQP/RabbitMQ queue management library.",
   "main": "js/index.js",
+  "keywords": [
+    "rabbitmq",
+    "rabbit",
+    "queue",
+    "amqp",
+    "amqplib"
+  ],
   "scripts": {
     "tsc": "tsc -p ts",
     "tsc:w": "tsc -w -p ts",
