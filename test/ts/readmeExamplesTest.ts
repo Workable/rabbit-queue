@@ -13,6 +13,25 @@ describe('Test Readme examples', function () {
     await rabbit.destroyQueue('demoQueue');
     await rabbit.destroyQueue('demoQueue_dlq');
   });
+
+  it('test connecting to rabbitmq', function () {
+    const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost', {
+      prefetch: 1, //default prefetch from queue
+      replyPattern: true, //if reply pattern is enabled an exclusive queue is created
+      logger: log4js.getLogger(`Rabbit-queue`),
+      prefix: '' //prefix all queues with an application name
+    });
+
+    rabbit.on('connected', () => {
+      //create queues, add halders etc.
+    });
+
+    rabbit.on('disconnected', (err = new Error('Rabbitmq Disconnected')) => {
+      //handle disconnections and try to reconnect
+      console.error(err);
+      setTimeout(() => rabbit.reconnect(), 100);
+    });
+  })
   it('test usage examples', async function () {
     const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
     await rabbit.createQueue('queueName', { durable: false }, (msg, ack) => {
@@ -64,4 +83,55 @@ describe('Test Readme examples', function () {
 
     await rabbit.publish('demoQueue', { test: 'data' }, { correlationId: '4' });
   });
+
+
+  it('test advanced usage with getReply', async function () {
+    const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
+    class DemoHandler extends BaseQueueHandler {
+      handle({msg, event, correlationId, startTime}) {
+        console.log('Received: ', event);
+        console.log('With correlation id: ' + correlationId);
+        return Promise.resolve('reply'); // could be return 'reply';
+      }
+
+      afterDlq({msg, event}) {
+        // Something to do after added to dlq
+      }
+    }
+
+    new DemoHandler('demoQueue', rabbit,
+      {
+        retries: 3,
+        retryDelay: 1000,
+        logEnabled: true,
+        logger: log4js.getLogger('[demoQueue]')
+      });
+
+    await rabbit.getReply('demoQueue', { test: 'data' }, { correlationId: '5' })
+      .then((reply) => console.log('received reply', reply));
+  });
+
+  it('test advanced usage add to dlq', async function () {
+    const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
+    class DemoHandler extends BaseQueueHandler {
+      handle({msg, event, correlationId, startTime}) {
+        return Promise.reject(new Error('test Error')); //throw new Error('test error');
+      }
+
+      afterDlq({msg, event}) {
+        console.log('added to dlq');
+      }
+    }
+
+    new DemoHandler('demoQueue', rabbit,
+      {
+        retries: 3,
+        retryDelay: 1,
+        logEnabled: true,
+        logger: log4js.getLogger('[demoQueue]')
+      });
+
+    await rabbit.getReply('demoQueue', { test: 'data' }, { correlationId: '5' })
+      .then((reply) => console.log('received reply', reply)); //reply will be '';
+  })
 });
