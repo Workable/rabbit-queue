@@ -10,17 +10,18 @@
 ## About
 
 This module is based on [WRabbit](https://github.com/Workable/wrabbit)
-and [jackrabbit](https://github.com/hunterloftis/jackrabbit).
+and [Jackrabbit](https://github.com/hunterloftis/jackrabbit).
 
 It makes [RabbitMQ](http://www.rabbitmq.com/) managemnent and integration easy. Provides an abstraction layer
 above [amqplib](https://github.com/squaremo/amqp.node).
 
 It is written in typescript and requires node v6.0.0 or higher. If you want to use it
-with an older version please dowload the sources and build them with target  (`/ts/tsconfig.json`).
+with an older version please dowload the sources and build them with target es5 (`/ts/tsconfig.json`).
 
-## Connectint to [RabbitMQ](http://www.rabbitmq.com/)
+## Connecting to RabbitMQ
 
 ```javascript
+  const {Rabbit} = require('rabbit-queue');
   const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost', {
     prefetch: 1, //default prefetch from queue
     replyPattern: true, //if reply pattern is enabled an exclusive queue is created
@@ -43,7 +44,6 @@ with an older version please dowload the sources and build them with target  (`/
 
 ```javascript
   const {Rabbit} = require('rabbit-queue');
-
   const rabbit = new Rabbit('amqp://localhost');
 
   rabbit.createQueue('queueName', { durable: false }, (msg, ack) => {
@@ -66,17 +66,17 @@ with an older version please dowload the sources and build them with target  (`/
   const {Rabbit} = require('rabbit-queue');
   const rabbit = new Rabbit('amqp://localhost');
 
-  await rabbit.createQueue('queueName', { durable: false }, (msg, ack) => {
+  rabbit.createQueue('queueName', { durable: false }, (msg, ack) => {
     console.log(msg.content.toString());
     ack('response');
   }).then(() => console.log('queue created'));
 
-  await rabbit.bindToExchange('queueName', 'amq.topic', 'routingKey');
-  //shortcut await rabbit.bindToTopic('queueName', 'routingKey');
+  rabbit.bindToExchange('queueName', 'amq.topic', 'routingKey');
+  //shortcut rabbit.bindToTopic('queueName', 'routingKey');
 
-  await rabbit.publishExchange('amq.topic', 'routingKey', { test: 'data' }, { correlationId: '1' })
+  rabbit.publishExchange('amq.topic', 'routingKey', { test: 'data' }, { correlationId: '1' })
     .then(() => console.log('message published'));
-  //shortcut await rabbit.publishTopic( 'routingKey', { test: 'data' }, { correlationId: '1' });
+  //shortcut rabbit.publishTopic( 'routingKey', { test: 'data' }, { correlationId: '1' });
 
 ```
 
@@ -84,7 +84,6 @@ with an older version please dowload the sources and build them with target  (`/
 
 ```javascript
   const rabbit = new Rabbit('amqp://localhost');
-
   class DemoHandler extends BaseQueueHandler {
     handle({msg, event, correlationId, startTime}) {
       console.log('Received: ', event);
@@ -110,7 +109,7 @@ with an older version please dowload the sources and build them with target  (`/
 ### Get reply pattern implemented with a QueueHandler
 
 ```javascript
- const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
+  const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
   class DemoHandler extends BaseQueueHandler {
     handle({msg, event, correlationId, startTime}) {
       console.log('Received: ', event);
@@ -131,7 +130,7 @@ with an older version please dowload the sources and build them with target  (`/
       logger: log4js.getLogger('[demoQueue]')
     });
 
-  await rabbit.getReply('demoQueue', { test: 'data' }, { correlationId: '5' })
+  rabbit.getReply('demoQueue', { test: 'data' }, { correlationId: '5' })
     .then((reply) => console.log('received reply', reply));
 ```
 
@@ -157,7 +156,7 @@ with an older version please dowload the sources and build them with target  (`/
       logger: log4js.getLogger('[demoQueue]')
     });
 
-  await rabbit.getReply('demoQueue', { test: 'data' }, { correlationId: '5' })
+  rabbit.getReply('demoQueue', { test: 'data' }, { correlationId: '5' })
     .then((reply) => console.log('received reply', reply)); //reply will be '';
 ```
 
