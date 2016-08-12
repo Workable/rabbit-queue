@@ -89,7 +89,7 @@ abstract class BaseQueueHandler {
   }
 
   logTime(startTime: number, correlationId: string) {
-    this.logger.debug(`[${correlationId}] Queue processing took [${this.queueName}] ${(new Date().getTime() - startTime)} ms`);
+    this.logger.debug(`[${correlationId}] Queue processing took ${(new Date().getTime() - startTime)} ms`);
   }
 
   setTimeout(time) {
