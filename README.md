@@ -12,7 +12,7 @@
 This module is based on [WRabbit](https://github.com/Workable/wrabbit)
 and [Jackrabbit](https://github.com/hunterloftis/jackrabbit).
 
-It makes [RabbitMQ](http://www.rabbitmq.com/) managemnent and integration easy. Provides an abstraction layer
+It makes [RabbitMQ](http://www.rabbitmq.com/) management and integration easy. Provides an abstraction layer
 above [amqplib](https://github.com/squaremo/amqp.node).
 
 It is written in typescript and requires node v6.0.0 or higher. If you want to use it
