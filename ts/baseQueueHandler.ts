@@ -58,7 +58,7 @@ abstract class BaseQueueHandler {
 
   async tryHandle(retries, msg: amqp.Message, ack: (reply) => any) {
     try {
-      const startTime = new Date().getTime();
+      const startTime = this.getTime();
       var body = msg.content.toString();
       const event = JSON.parse(body);
       const correlationId = this.getCorrelationId(msg, event);
@@ -86,6 +86,10 @@ abstract class BaseQueueHandler {
       stack: err.stack.substr(0, 200),
       time: new Date().toString()
     };
+  }
+
+  getTime() {
+    return new Date().getTime();
   }
 
   logTime(startTime: number, correlationId: string) {
