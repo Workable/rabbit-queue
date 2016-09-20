@@ -15,8 +15,7 @@ and [Jackrabbit](https://github.com/hunterloftis/jackrabbit).
 It makes [RabbitMQ](http://www.rabbitmq.com/) management and integration easy. Provides an abstraction layer
 above [amqplib](https://github.com/squaremo/amqp.node).
 
-It is written in typescript and requires node v6.0.0 or higher. If you want to use it
-with an older version please dowload the sources and build them with target es5 (`/ts/tsconfig.json`).
+It is written in typescript and requires node v6.0.0 or higher.
 
 ## Connecting to RabbitMQ
 
