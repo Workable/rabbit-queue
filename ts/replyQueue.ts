@@ -24,7 +24,7 @@ function onReply(msg: amqp.Message) {
   delete replyHandlers[id];
 
   const body = msg.content.toString();
-  getLogger().debug(`<- Returning reply ${msg.content.byteLength} bytes`);
+  getLogger().debug(`-> Returning reply ${msg.content.byteLength} bytes`);
   const obj = JSON.parse(body);
   replyHandler(null, obj);
 };
