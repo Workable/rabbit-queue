@@ -44,7 +44,8 @@ abstract class BaseQueueHandler {
 
   init() {
     this.dlqName = this.getDlq();
-    this.rabbit.createQueue(this.queueName, this.getQueueOptions(), (msg, ack) => this.tryHandle(0, msg, ack))
+    this.rabbit.createQueue(this.queueName, this.getQueueOptions(),
+      (msg, ack) => this.tryHandle(0, msg, ack).catch(e => console.error(e)))
       .then(queue => {
         this.queue = queue;
       })
