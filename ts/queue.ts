@@ -85,7 +85,7 @@ export default class Queue {
         correlationId
       }, headers);
       const bufferContent = new Buffer(msg);
-      getLogger().debug(`<- Publishing to queue ${name} ${bufferContent.byteLength} bytes`);
+      getLogger().debug(`[${correlationId}] <- Publishing to queue ${name} ${bufferContent.byteLength} bytes`);
       channel.sendToQueue(name, bufferContent, headers, (err, ok) => err ? reject(err) : resolve(ok));
     });
   }
