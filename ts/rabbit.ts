@@ -115,10 +115,10 @@ export default class Rabbit extends EventEmitter {
     await Queue.publish(obj, headers, this.channel, name, this.queues[name]);
   }
 
-  async getReply(name: string, obj, headers: amqp.Options.Publish, prefix?: string) {
+  async getReply(name: string, obj, headers: amqp.Options.Publish, prefix?: string, timeout?: number) {
     name = this.updateName(name, prefix);
     await this.connected;
-    return await Queue.getReply(obj, headers, this.channel, name, this.queues[name]);
+    return await Queue.getReply(obj, headers, this.channel, name, this.queues[name], timeout);
   }
 
   async publishExchange(exchange: string, routingKey: string, content, headers: amqp.Options.Publish, prefix?: string) {

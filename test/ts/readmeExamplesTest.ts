@@ -31,7 +31,8 @@ describe('Test Readme examples', function () {
       console.error(err);
       setTimeout(() => rabbit.reconnect(), 100);
     });
-  })
+  });
+
   it('test usage examples', async function () {
     const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
     await rabbit.createQueue('queueName', { durable: false }, (msg, ack) => {
@@ -44,6 +45,10 @@ describe('Test Readme examples', function () {
 
     await rabbit.getReply('queueName', { test: 'data' }, { correlationId: '1' })
       .then((reply) => console.log('received reply', reply));
+
+    await rabbit.getReply('queueName', { test: 'data' }, { correlationId: '1' }, '', 100)
+      .then((reply) => console.log('received reply', reply))
+      .catch((error) => console.log('Timed out after 100ms'))
   });
 
   it('test binding examples', async function () {

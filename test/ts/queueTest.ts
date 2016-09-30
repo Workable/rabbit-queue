@@ -3,8 +3,6 @@ import 'should';
 import * as assert from 'assert';
 import * as sinon from 'sinon';
 import Queue from '../../js/queue';
-import Exchange from '../../js/exchange';
-import * as ReplyQueue from '../../js/replyQueue';
 const sandbox = sinon.sandbox.create();
 
 describe('Test Queue class', function () {
@@ -103,6 +101,34 @@ describe('Test Queue class', function () {
     const result = await Queue.getReply(content, headers, rabbit.channel, this.name, queue);
     result.should.equal('result');
     spy.calledTwice.should.be.true();
+    spy.args[0].slice(0, 3).should.eql([this.name, new Buffer(JSON.stringify(content)), headers]);
+  });
+
+  it('should publish to queue with getReply and timeout', async function () {
+    const spy = sandbox.spy(rabbit.channel, 'sendToQueue');
+    const content = { content: true };
+    const headers = { headers: { test: 1 }, correlationId: '1', persistent: false, replyTo: rabbit.channel.replyName };
+    const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
+    await queue.subscribe((msg, ack) => setTimeout(() => ack('result'), 1));
+    const result = await Queue.getReply(content, headers, rabbit.channel, this.name, queue, 10);
+    result.should.equal('result');
+    spy.calledTwice.should.be.true();
+    spy.args[0].slice(0, 3).should.eql([this.name, new Buffer(JSON.stringify(content)), headers]);
+  });
+
+  it('should publish to queue with getReply and timeout and fail', async function () {
+    const spy = sandbox.spy(rabbit.channel, 'sendToQueue');
+    const content = { content: true };
+    const headers = { headers: { test: 1 }, correlationId: '1', persistent: false, replyTo: rabbit.channel.replyName };
+    const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
+    await queue.subscribe((msg, ack) => setTimeout(() => ack('result'), 10));
+    try {
+      await Queue.getReply(content, headers, rabbit.channel, this.name, queue, 1);
+      assert(false);
+    } catch (error) {
+      error.should.eql(new Error('Timed out'));
+    }
+    spy.calledOnce.should.be.true();
     spy.args[0].slice(0, 3).should.eql([this.name, new Buffer(JSON.stringify(content)), headers]);
   });
 

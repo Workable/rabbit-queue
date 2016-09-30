@@ -3,6 +3,7 @@ import {getLogger} from './logger';
 import * as amqp from 'amqplib';
 import {Channel} from './channel';
 import {addHandler} from './replyQueue';
+import raceUntil from 'race-until';
 
 export default class Queue {
   defaultOptions = {
@@ -90,11 +91,11 @@ export default class Queue {
     });
   }
 
-  static async getReply(obj, headers: amqp.Options.Publish, channel: Channel, name: string, queue?: Queue) {
+  static async getReply(obj, headers: amqp.Options.Publish, channel: Channel, name: string, queue?: Queue, timeout?: number) {
     if (queue) {
       await queue.created;
     }
-    return new Promise((resolve, reject) => {
+    const reply = new Promise((resolve, reject) => {
       var msg = JSON.stringify(obj);
       var correlationId = headers.correlationId || uuid.v4();
       headers = Object.assign({
@@ -103,10 +104,15 @@ export default class Queue {
         replyTo: channel.replyName
       }, headers);
       const bufferContent = new Buffer(msg);
-      getLogger().debug(`<- Publishing to reply queue ${name} ${bufferContent.byteLength} bytes`);
+      getLogger().debug(`[${correlationId}] <- Publishing to reply queue ${name} ${bufferContent.byteLength} bytes`);
       addHandler(correlationId, (err, body) => err ? reject(err) : resolve(body));
       channel.sendToQueue(name, bufferContent, headers, (err, ok) => err ? reject(err) : ({}));
     });
+    if (timeout) {
+      return raceUntil(reply, timeout, false);
+    } else {
+      return reply;
+    }
   }
 
   static async bindToExchange(exchange: string, routingKey: string, channel: Channel, name: string, queue?: Queue) {
