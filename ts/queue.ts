@@ -6,6 +6,8 @@ import {addHandler} from './replyQueue';
 import raceUntil from 'race-until';
 
 export default class Queue {
+  static STOP_PROPAGATION = { stopPropagation: true };
+
   defaultOptions = {
     durable: true, noAck: false
   };
@@ -61,9 +63,9 @@ export default class Queue {
       }
     };
     if (!msg) { return; }
-    const hasReply = msg.properties.replyTo;
+    const hasReply = !!msg.properties.replyTo;
     this.handler(msg, (reply) => {
-      if (hasReply) {
+      if (hasReply && reply !== Queue.STOP_PROPAGATION) {
         var replyBuffer = new Buffer(JSON.stringify(reply || ''));
         this.channel.sendToQueue(msg.properties.replyTo, replyBuffer, {
           correlationId: msg.properties.correlationId

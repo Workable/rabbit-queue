@@ -8,6 +8,7 @@ import Exchange from './exchange';
 import * as assert from 'assert';
 
 export default class Rabbit extends EventEmitter {
+  static STOP_PROPAGATION = Queue.STOP_PROPAGATION;
   public connection: amqp.Connection;
   public channel: Channel;
   public connected: Promise<any>;
