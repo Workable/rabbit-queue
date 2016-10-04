@@ -11,8 +11,8 @@ export default {
     return new Promise((resolve, reject) => {
       let extraHeaders: any = {};
       const bufferContent = new Buffer(JSON.stringify(content));
-      const exchangeHeaders = Object.assign({}, this.defaultHeaders, headers, extraHeaders);
-      getLogger().debug(`<- Publishing to ${exchange} ${routingKey} ${bufferContent.byteLength} bytes`);
+      const exchangeHeaders: amqp.Options.Publish = Object.assign({}, this.defaultHeaders, headers, extraHeaders);
+      getLogger().debug(`[${exchangeHeaders.correlationId}] <- Publishing to ${exchange} ${routingKey} ${bufferContent.byteLength} bytes`);
       channel.publish(exchange, routingKey, bufferContent, exchangeHeaders, (err, ok) => {
         err ? reject(err) : resolve(ok);
       });
