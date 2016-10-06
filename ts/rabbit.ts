@@ -148,12 +148,12 @@ export default class Rabbit extends EventEmitter {
 
   async bindToTopic(name: string, routingKey: string, prefix?: string) {
     name = this.updateName(name, prefix);
-    await this.bindToExchange(name, 'amq.topic', routingKey);
+    await this.bindToExchange(name, 'amq.topic', routingKey, prefix);
   }
 
   async unbindFromTopic(name: string, routingKey: string, prefix?: string) {
     name = this.updateName(name, prefix);
-    await this.unbindFromExchange(name, 'amq.topic', routingKey);
+    await this.unbindFromExchange(name, 'amq.topic', routingKey, prefix);
   }
 
   async close() {
