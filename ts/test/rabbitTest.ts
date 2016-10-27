@@ -102,6 +102,17 @@ describe('Test rabbit class', function () {
     stub.calledWith(content, headers, rabbit.channel, `test_${this.name}`, undefined).should.be.true();
   });
 
+  it('should publish to topic with getReply', async function () {
+    const stub = sandbox.stub(Exchange, 'getReply');
+    const rabbit = new Rabbit(this.url, { prefix: 'test' });
+    await rabbit.connected;
+    const content = { content: true };
+    const headers = { headers: { test: 1 } };
+    await rabbit.getTopicReply(`test_${this.name}`, content, headers);
+    stub.calledOnce.should.be.true();
+    stub.calledWith(rabbit.channel, 'amq.topic', `test_${this.name}`, content, headers, undefined).should.be.true();
+  });
+
   it('should publish to exchange', async function () {
     const stub = sandbox.stub(Exchange, 'publish');
     const rabbit = new Rabbit(this.url);

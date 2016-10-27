@@ -10,7 +10,7 @@ describe('Test Queue class', function () {
   before(async function () {
     this.url = process.env.RABBIT_URL || 'amqp://localhost';
     this.name = 'test.queue';
-    rabbit = new Rabbit(this.url);
+    rabbit = new Rabbit(this.url, { logger: (<any>global).logger });
     await rabbit.connected;
   });
 

@@ -48,7 +48,12 @@ describe('Test Readme examples', function () {
 
     await rabbit.getReply('queueName', { test: 'data' }, { correlationId: '1' }, '', 100)
       .then((reply) => console.log('received reply', reply))
-      .catch((error) => console.log('Timed out after 100ms'))
+      .catch((error) => console.log('Timed out after 100ms'));
+
+    await rabbit.bindToTopic('queueName', 'routingKey');
+    await rabbit.getTopicReply('routingKey', { test: 'data' }, { correlationId: '1' }, '', 100)
+      .then((reply) => console.log('received reply', reply))
+      .catch((error) => console.log('Timed out after 100ms'));
   });
 
   it('test binding examples', async function () {

@@ -31,7 +31,7 @@ describe('Test ReplyQueue', function () {
     await ReplyQueue.createReplyQueue(rabbit.channel);
     const handler = (err, body) => {
       body.should.equal('test_body');
-    }
+    };
     ReplyQueue.addHandler(1, handler);
     stub.callArgWith(1, { properties: { correlationId: 1 }, content: '"test_body"' });
   });

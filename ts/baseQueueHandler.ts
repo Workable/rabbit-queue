@@ -16,8 +16,8 @@ abstract class BaseQueueHandler {
   constructor(public queueName, public rabbit: Rabbit,
     {retries = 3, retryDelay = 1000, logger = getNewLogger(`[${queueName}]`), logEnabled = true} = {}) {
     assert(typeof logger.debug === 'function', 'logger has no debug method');
-    assert(typeof logger.warn === 'function', 'logger has no debug method');
-    assert(typeof logger.error === 'function', 'logger has no debug method');
+    assert(typeof logger.warn === 'function', 'logger has no warn method');
+    assert(typeof logger.error === 'function', 'logger has no error method');
 
     this.retries = retries;
     this.retryDelay = retryDelay;

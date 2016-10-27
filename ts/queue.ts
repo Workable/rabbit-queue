@@ -1,8 +1,8 @@
 import * as uuid from 'node-uuid';
-import {getLogger} from './logger';
+import { getLogger } from './logger';
 import * as amqp from 'amqplib';
-import {Channel} from './channel';
-import {addHandler} from './replyQueue';
+import { Channel } from './channel';
+import { getReply } from './replyQueue';
 import raceUntil from 'race-until';
 
 export default class Queue {
@@ -97,18 +97,9 @@ export default class Queue {
     if (queue) {
       await queue.created;
     }
-    const reply = new Promise((resolve, reject) => {
-      var msg = JSON.stringify(obj);
-      var correlationId = headers.correlationId || uuid.v4();
-      headers = Object.assign({
-        persistent: false,
-        correlationId,
-        replyTo: channel.replyName
-      }, headers);
-      const bufferContent = new Buffer(msg);
+    const reply = getReply(obj, headers, channel, (bufferContent, headers, correlationId, cb) => {
       getLogger().debug(`[${correlationId}] <- Publishing to reply queue ${name} ${bufferContent.byteLength} bytes`);
-      addHandler(correlationId, (err, body) => err ? reject(err) : resolve(body));
-      channel.sendToQueue(name, bufferContent, headers, (err, ok) => err ? reject(err) : ({}));
+      channel.sendToQueue(name, bufferContent, headers, cb);
     });
     if (timeout) {
       return raceUntil(reply, timeout, false);

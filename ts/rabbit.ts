@@ -1,8 +1,8 @@
 import * as amqp from 'amqplib';
-import {EventEmitter} from 'events';
-import {init, getLogger} from './logger';
-import {createReplyQueue} from './replyQueue';
-import {Channel} from './channel';
+import { EventEmitter } from 'events';
+import { init, getLogger } from './logger';
+import { createReplyQueue } from './replyQueue';
+import { Channel } from './channel';
 import Queue from './queue';
 import Exchange from './exchange';
 import * as assert from 'assert';
@@ -122,38 +122,44 @@ export default class Rabbit extends EventEmitter {
     return await Queue.getReply(obj, headers, this.channel, name, this.queues[name], timeout);
   }
 
+  async getTopicReply(topicName: string, content: any, headers: amqp.Options.Publish, prefix?: string, timeout?: number) {
+    topicName = this.updateName(topicName, prefix);
+    await this.connected;
+    await Exchange.getReply(this.channel, 'amq.topic', topicName, content, headers, timeout);
+  }
+
   async publishExchange(exchange: string, routingKey: string, content, headers: amqp.Options.Publish, prefix?: string) {
     routingKey = this.updateName(routingKey, prefix);
     await this.connected;
     await Exchange.publish(this.channel, exchange, routingKey, content, headers);
   }
 
-  async publishTopic(routingKey: string, content, headers: amqp.Options.Publish = {}, prefix?: string) {
-    routingKey = this.updateName(routingKey, prefix);
+  async publishTopic(topicName: string, content, headers: amqp.Options.Publish = {}, prefix?: string) {
+    topicName = this.updateName(topicName, prefix);
     await this.connected;
-    await Exchange.publish(this.channel, 'amq.topic', routingKey, content, headers);
+    await Exchange.publish(this.channel, 'amq.topic', topicName, content, headers);
   }
 
-  async bindToExchange(name: string, exchange: string, routingKey: string, prefix?: string) {
-    name = this.updateName(name, prefix);
+  async bindToExchange(queueName: string, exchange: string, routingKey: string, prefix?: string) {
+    queueName = this.updateName(queueName, prefix);
     await this.connected;
-    await Queue.bindToExchange(exchange, routingKey, this.channel, name, this.queues[name]);
+    await Queue.bindToExchange(exchange, routingKey, this.channel, queueName, this.queues[queueName]);
   }
 
-  async unbindFromExchange(name: string, exchange, routingKey, prefix?: string) {
-    name = this.updateName(name, prefix);
+  async unbindFromExchange(queueName: string, exchange, topicName, prefix?: string) {
+    queueName = this.updateName(queueName, prefix);
     await this.connected;
-    await Queue.unbindFromExchange(exchange, routingKey, this.channel, name, this.queues[name]);
+    await Queue.unbindFromExchange(exchange, topicName, this.channel, queueName, this.queues[queueName]);
   }
 
-  async bindToTopic(name: string, routingKey: string, prefix?: string) {
-    name = this.updateName(name, prefix);
-    await this.bindToExchange(name, 'amq.topic', routingKey, prefix);
+  async bindToTopic(queueName: string, topicName: string, prefix?: string) {
+    queueName = this.updateName(queueName, prefix);
+    await this.bindToExchange(queueName, 'amq.topic', topicName, prefix);
   }
 
-  async unbindFromTopic(name: string, routingKey: string, prefix?: string) {
-    name = this.updateName(name, prefix);
-    await this.unbindFromExchange(name, 'amq.topic', routingKey, prefix);
+  async unbindFromTopic(queueName: string, topicName: string, prefix?: string) {
+    queueName = this.updateName(queueName, prefix);
+    await this.unbindFromExchange(queueName, 'amq.topic', topicName, prefix);
   }
 
   async close() {

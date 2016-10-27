@@ -22,7 +22,7 @@ describe('Test baseQueueHandler', function () {
   before(async function () {
     this.url = process.env.RABBIT_URL || 'amqp://localhost';
     this.name = 'test.queue';
-    rabbit = new Rabbit(this.url);
+    rabbit = new Rabbit(this.url, { logger: (<any>global).logger });
     await rabbit.connected;
   });
 
@@ -33,7 +33,7 @@ describe('Test baseQueueHandler', function () {
   });
 
   it('should handle message', async function () {
-    const handler = new DemoHandler(this.name, rabbit);
+    const handler = new DemoHandler(this.name, rabbit, { logger: (<any>global).logger });
     const handle = handler.handle = sandbox.stub();
     await rabbit.publish(this.name, { test: 'data' }, { correlationId: '3' });
     handle.calledOnce.should.be.true();
@@ -43,11 +43,10 @@ describe('Test baseQueueHandler', function () {
 
   it('should add to dlq after x retries', async function () {
     sandbox.useFakeTimers();
-    const emptyfn = () => ({});
     const handler = new DemoHandler(this.name, rabbit,
       {
         retries: 2, retryDelay: 100,
-        logger: { debug: emptyfn, warn: emptyfn, error: emptyfn }
+        logger: (<any>global).logger
       });
     const handle = handler.handle = sandbox.spy(() => {
       throw new Error('test error');
@@ -66,11 +65,10 @@ describe('Test baseQueueHandler', function () {
 
   it('should add string to dlq because afterDlq throws error', async function () {
     sandbox.useFakeTimers();
-    const emptyfn = () => ({});
     const handler = new DemoHandler(this.name, rabbit,
       {
         retries: 2, retryDelay: 100,
-        logger: { debug: emptyfn, warn: emptyfn, error: emptyfn }
+        logger: (<any>global).logger
       });
     handler.handle = sandbox.spy(() => {
       throw new Error('test error');

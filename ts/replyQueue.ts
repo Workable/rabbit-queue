@@ -1,7 +1,9 @@
-import {Channel} from './channel';
+import { Channel } from './channel';
 import * as amqp from 'amqplib';
-import {getLogger} from './logger';
+import { getLogger } from './logger';
 import * as assert from 'assert';
+import * as uuid from 'node-uuid';
+
 let replyHandlers = {};
 
 export async function createReplyQueue(channel: Channel) {
@@ -15,6 +17,21 @@ export async function createReplyQueue(channel: Channel) {
 export function addHandler(correlationId, handler: (err: Error, body: string) => void) {
   assert(!replyHandlers[correlationId], 'Already added reply handler with this id.');
   replyHandlers[correlationId] = handler;
+}
+
+export function getReply(content: any, headers: amqp.Options.Publish, channel: Channel, cb: Function) {
+  return new Promise((resolve, reject) => {
+    var msg = JSON.stringify(content);
+    var correlationId = headers.correlationId || uuid.v4();
+    headers = Object.assign({
+      persistent: false,
+      correlationId,
+      replyTo: channel.replyName
+    }, headers);
+    const bufferContent = new Buffer(msg);
+    addHandler(correlationId, (err, body) => err ? reject(err) : resolve(body));
+    cb(bufferContent, headers, correlationId, (err, ok) => err ? reject(err) : ({}));
+  });
 }
 
 function onReply(msg: amqp.Message) {
