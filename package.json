@@ -11,11 +11,11 @@
     "amqplib"
   ],
   "scripts": {
-    "tsc": "tsc -p ts",
-    "tsc:w": "tsc -w -p ts",
+    "build": "tsc -p .",
+    "watch": "tsc -w -p .",
     "prepublish": "tsc -p ts",
-    "pretest": "tslint ts/**.ts && tsc -p test/ts && tsc -p ts",
-    "test": "istanbul test ./node_modules/.bin/_mocha test/js/**.js --  -R spec",
+    "pretest": "tslint ts/**.ts && npm run build",
+    "test": "istanbul test ./node_modules/.bin/_mocha js/test/**.js --  -R spec",
     "test-docker": "docker-compose run rabbit-queue npm run test --coverage",
     "posttest": "remap-istanbul -i coverage/coverage.json -o coverage/lcov-report -t html"
   },

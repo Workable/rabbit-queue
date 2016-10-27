@@ -1,5 +1,5 @@
 
-import * as logger from '../../js/logger';
+import * as logger from '../logger';
 import * as log4js from 'log4js';
 import * as should from 'should';
 

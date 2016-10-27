@@ -1,9 +1,9 @@
 import 'should';
 import * as assert from 'assert';
 import * as sinon from 'sinon';
-import Exchange from '../../js/exchange';
-import Rabbit from '../../js/rabbit';
-import BaseQueueHandler from '../../js/baseQueueHandler';
+import Exchange from '../exchange';
+import Rabbit from '../rabbit';
+import BaseQueueHandler from '../baseQueueHandler';
 import * as log4js from 'log4js';
 
 describe('Test Readme examples', function () {

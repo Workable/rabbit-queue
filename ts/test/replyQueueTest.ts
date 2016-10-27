@@ -1,8 +1,8 @@
 import 'should';
 import * as assert from 'assert';
 import * as sinon from 'sinon';
-import * as ReplyQueue from '../../js/replyQueue';
-import Rabbit from '../../js/rabbit';
+import * as ReplyQueue from '../replyQueue';
+import Rabbit from '../rabbit';
 const sandbox = sinon.sandbox.create();
 
 describe('Test ReplyQueue', function () {

@@ -1,10 +1,10 @@
-import Rabbit from '../../js/rabbit';
+import Rabbit from '../rabbit';
 import 'should';
 import * as assert from 'assert';
 import * as sinon from 'sinon';
-import Queue from '../../js/queue';
-import Exchange from '../../js/exchange';
-import * as ReplyQueue from '../../js/replyQueue';
+import Queue from '../queue';
+import Exchange from '../exchange';
+import * as ReplyQueue from '../replyQueue';
 const sandbox = sinon.sandbox.create();
 
 describe('Test rabbit class', function () {

@@ -1,8 +1,8 @@
 import 'should';
 import * as assert from 'assert';
 import * as sinon from 'sinon';
-import Exchange from '../../js/exchange';
-import Rabbit from '../../js/rabbit';
+import Exchange from '../exchange';
+import Rabbit from '../rabbit';
 const sandbox = sinon.sandbox.create();
 
 describe('Test Exchange', function () {
@@ -26,5 +26,5 @@ describe('Test Exchange', function () {
     stub.args[0].slice(0, 4).should.eql(['exchange', 'routingKey', new Buffer(JSON.stringify(content)), headers]);
   });
 
-  
+
 });

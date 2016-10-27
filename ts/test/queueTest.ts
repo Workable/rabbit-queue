@@ -1,8 +1,8 @@
-import Rabbit from '../../js/rabbit';
+import Rabbit from '../rabbit';
 import 'should';
 import * as assert from 'assert';
 import * as sinon from 'sinon';
-import Queue from '../../js/queue';
+import Queue from '../queue';
 const sandbox = sinon.sandbox.create();
 
 describe('Test Queue class', function () {
