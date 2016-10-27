@@ -38,10 +38,6 @@ It is written in typescript and requires node v6.0.0 or higher.
     setTimeout(() => rabbit.reconnect(), 100);
   });
 
-   rabbit.bindToTopic('queueName', 'routingKey');
-   rabbit.getTopicReply('routingKey', { test: 'data' }, { correlationId: '1' }, '', 100)
-      .then((reply) => console.log('received reply', reply))
-      .catch((error) => console.log('Timed out after 100ms'));
 ```
 
 ## Usage
@@ -64,6 +60,11 @@ It is written in typescript and requires node v6.0.0 or higher.
   rabbit.getReply('queueName', { test: 'data' }, { correlationId: '1' }, '', 100)
     .then((reply) => console.log('received reply', reply))
     .catch((error)=> console.log('Timed out after 100ms'))
+
+  rabbit.bindToTopic('queueName', 'routingKey');
+  rabbit.getTopicReply('routingKey', { test: 'data' }, { correlationId: '1' }, '', 100)
+      .then((reply) => console.log('received reply', reply))
+      .catch((error) => console.log('Timed out after 100ms'));
 
 ```
 
