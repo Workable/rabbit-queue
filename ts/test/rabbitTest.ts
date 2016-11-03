@@ -92,23 +92,25 @@ describe('Test rabbit class', function () {
   });
 
   it('should publish to queue with getReply', async function () {
-    const stub = sandbox.stub(Queue, 'getReply');
+    const stub = sandbox.stub(Queue, 'getReply').returns(Promise.resolve('reply'));
     const rabbit = new Rabbit(this.url, { prefix: 'test' });
     await rabbit.connected;
     const content = { content: true };
     const headers = { headers: { test: 1 } };
-    await rabbit.getReply(`test_${this.name}`, content, headers);
+    const reply = await rabbit.getReply(`test_${this.name}`, content, headers);
+    reply.should.equal('reply');
     stub.calledOnce.should.be.true();
     stub.calledWith(content, headers, rabbit.channel, `test_${this.name}`, undefined).should.be.true();
   });
 
   it('should publish to topic with getReply', async function () {
-    const stub = sandbox.stub(Exchange, 'getReply');
+    const stub = sandbox.stub(Exchange, 'getReply').returns(Promise.resolve('reply'));
     const rabbit = new Rabbit(this.url, { prefix: 'test' });
     await rabbit.connected;
     const content = { content: true };
     const headers = { headers: { test: 1 } };
-    await rabbit.getTopicReply(`test_${this.name}`, content, headers);
+    const reply = await rabbit.getTopicReply(`test_${this.name}`, content, headers);
+    reply.should.equal('reply');
     stub.calledOnce.should.be.true();
     stub.calledWith(rabbit.channel, 'amq.topic', `test_${this.name}`, content, headers, undefined).should.be.true();
   });
