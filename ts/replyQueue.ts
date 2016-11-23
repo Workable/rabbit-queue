@@ -2,7 +2,7 @@ import { Channel } from './channel';
 import * as amqp from 'amqplib';
 import { getLogger } from './logger';
 import * as assert from 'assert';
-import * as uuid from 'node-uuid';
+import * as uuid from 'uuid';
 
 let replyHandlers = {};
 

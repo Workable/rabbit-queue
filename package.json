@@ -34,6 +34,7 @@
   "typings": "js/index",
   "devDependencies": {
     "source-map-support": "^0.4.5",
+    "@types/uuid": "^2.0.29",
     "@types/amqplib": "^0.3.29",
     "@types/log4js": "0.0.32",
     "@types/mocha": "^2.2.32",
