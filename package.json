@@ -28,8 +28,8 @@
   "dependencies": {
     "amqplib": "^0.4.2",
     "log4js": "^0.6.38",
-    "node-uuid": "^1.4.7",
-    "race-until": "^1.0.2"
+    "race-until": "^1.0.2",
+    "uuid": "^3.0.0"
   },
   "typings": "js/index",
   "devDependencies": {
