@@ -14,7 +14,7 @@
     "build": "tsc -p .",
     "watch": "tsc -w -p .",
     "prepublish": "npm run build",
-    "pretest": "tslint ts/**.ts && npm run build",
+    "pretest": "tslint ts/*.ts && npm run build",
     "test": "istanbul test ./node_modules/.bin/_mocha js/test/**.js --  -R spec",
     "test-docker": "docker-compose run rabbit-queue npm run test --coverage",
     "posttest": "remap-istanbul -i coverage/coverage.json -o coverage/lcov-report -t html"
@@ -49,7 +49,7 @@
     "remap-istanbul": "^0.6.4",
     "should": "^10.0.0",
     "sinon": "^1.17.5",
-    "tslint": "^3.14.0",
+    "tslint": "^4.1.0",
     "typescript": "2.1.4"
   }
 }
