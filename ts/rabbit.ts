@@ -2,6 +2,7 @@ import * as amqp from 'amqplib';
 import { EventEmitter } from 'events';
 import { init, getLogger } from './logger';
 import { createReplyQueue } from './replyQueue';
+import { createDelayQueue, publishWithDelay } from './delayQueue';
 import { Channel } from './channel';
 import Queue from './queue';
 import Exchange from './exchange';
@@ -17,14 +18,16 @@ export default class Rabbit extends EventEmitter {
   public prefetch: number;
   public replyPattern: boolean;
   public prefix: string;
+  public scheduledPublish: boolean;
 
   constructor(public url: string,
-    {prefetch = 1, replyPattern = true, logger = null, prefix = ''} = {}) {
+    {prefetch = 1, replyPattern = true, logger = null, prefix = '', scheduledPublish = false} = {}) {
     super();
     assert(url, 'Url is required!');
     this.prefetch = prefetch;
     this.replyPattern = replyPattern;
     this.prefix = prefix;
+    this.scheduledPublish = scheduledPublish;
     init(logger);
     this.reconnect();
   }
@@ -61,6 +64,9 @@ export default class Rabbit extends EventEmitter {
     this.channel.on('close', error => this.emitDisconnected(error));
     if (this.replyPattern) {
       await createReplyQueue(this.channel);
+    }
+    if (this.scheduledPublish) {
+      await createDelayQueue(this.channel, this.updateName('delay'));
     }
     this.emit('connected');
     this.connecting = false;
@@ -114,6 +120,12 @@ export default class Rabbit extends EventEmitter {
     name = this.updateName(name, prefix);
     await this.connected;
     await Queue.publish(obj, headers, this.channel, name, this.queues[name]);
+  }
+
+  async publishWithDelay(name: string, obj, headers?: amqp.Options.Publish, prefix?: string) {
+    name = this.updateName(name, prefix);
+    await this.connected;
+    await publishWithDelay(obj, headers, this.channel, name);
   }
 
   async getReply(name: string, obj, headers: amqp.Options.Publish, prefix?: string, timeout?: number) {
