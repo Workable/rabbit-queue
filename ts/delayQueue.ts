@@ -1,37 +1,37 @@
 import { Channel } from './channel';
 import * as amqp from 'amqplib';
 import { getLogger } from './logger';
-import * as assert from 'assert';
-import * as uuid from 'uuid';
 import Queue from './queue';
 
 let delayedQueue: Queue;
 let delayedQueueReply: Queue;
 
 export async function createDelayQueue(channel: Channel, delayedQueueName: string) {
+  const delayedQueueNameReply = `${delayedQueueName}_reply`;
   delayedQueue = new Queue(channel, delayedQueueName, {
     deadLetterExchange: 'amq.direct',
-    deadLetterRoutingKey: `${name}_delay_reply`,
-    durable: true
+    deadLetterRoutingKey: delayedQueueNameReply
   });
   await delayedQueue.created;
 
-  delayedQueueReply = new Queue(channel, `${delayedQueueName}_reply`, { durable: true });
-  await delayedQueueReply.created;
+  delayedQueueReply = new Queue(channel, delayedQueueNameReply, {});
+  await Queue.bindToExchange('amq.direct', delayedQueueNameReply, channel, delayedQueueNameReply, delayedQueue);
   delayedQueueReply.subscribe(onReply(channel));
 };
 
 export async function publishWithDelay(obj, headers: amqp.Options.Publish = {}, channel: Channel, name: string) {
-  Queue.publish({ name, obj }, headers, channel, delayedQueue.name, delayedQueue);
+  Queue.publish({ name, obj }, { expiration: '10000', ...headers }, channel, delayedQueue.name, delayedQueue);
 }
 
 function onReply(channel: Channel) {
-  return (msg: amqp.Message) => {
+  return async (msg: amqp.Message, ack) => {
     const id = msg.properties.correlationId;
     const body = msg.content.toString();
-    getLogger().debug(`[${id}] -> Returning reply ${msg.content.byteLength} bytes`);
     const {name, obj} = JSON.parse(body);
-    const {expiration, ...headers} = msg.properties.headers;
-    Queue.publish(obj, headers, channel, name);
-  }
+    const {properties} = msg;
+    const {['x-death']: xDeath, ...rest} = properties.headers;
+    getLogger().debug(`[${id}] -> Received expired msg after ${xDeath[0]['original-expiration']} ms`);
+    await Queue.publish(obj, { ...properties, headers: rest }, channel, name);
+    ack();
+  };
 };
