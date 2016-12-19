@@ -9,13 +9,12 @@ let delayedQueueReply: Queue;
 export async function createDelayQueue(channel: Channel, delayedQueueName: string) {
   const delayedQueueNameReply = `${delayedQueueName}_reply`;
   delayedQueue = new Queue(channel, delayedQueueName, {
-    deadLetterExchange: 'amq.direct',
+    deadLetterExchange: '',
     deadLetterRoutingKey: delayedQueueNameReply
   });
   await delayedQueue.created;
 
   delayedQueueReply = new Queue(channel, delayedQueueNameReply, {});
-  await Queue.bindToExchange('amq.direct', delayedQueueNameReply, channel, delayedQueueNameReply, delayedQueue);
   delayedQueueReply.subscribe(onReply(channel));
 };
 
