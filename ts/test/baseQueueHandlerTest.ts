@@ -87,6 +87,33 @@ describe('Test baseQueueHandler', function () {
     afterDlq.calledOnce.should.be.true();
   });
 
+  it('should add to dlq after x retries', async function () {
+    sandbox.useFakeTimers();
+    const handler = DemoHandler.prototypeFactory(this.name, rabbit,
+      {
+        retries: 2, retryDelay: 100,
+        logger: (<any>global).logger
+      });
+    const handle = DemoHandler.prototype.handle;
+    const originalAfterDlq = DemoHandler.prototype.afterDlq
+    DemoHandler.prototype.handle = function ({event}) {
+      throw new Error('test error');
+    };
+
+    const afterDlq = DemoHandler.prototype.afterDlq = sandbox.spy();
+    await rabbit.publish(this.name, { test: 'data' }, { correlationId: '3' });
+    sandbox.clock.tick(100);
+    await rabbit.connected;
+    sandbox.clock.tick(100);
+    await rabbit.connected;
+    sandbox.clock.restore();
+    await new Promise(resolve => setTimeout(resolve, 200));
+    afterDlq.calledOnce.should.be.true();
+    DemoHandler.prototype.handle = handle;
+    DemoHandler.prototype.afterDlq = originalAfterDlq;
+  });
+
+
   it('should add string to dlq because afterDlq throws error', async function () {
     sandbox.useFakeTimers();
     const handler = new DemoHandler(this.name, rabbit,
