@@ -5,6 +5,7 @@ import * as sinon from 'sinon';
 import Queue from '../queue';
 import Exchange from '../exchange';
 import * as ReplyQueue from '../replyQueue';
+import * as DelayQueue from '../delayQueue';
 const sandbox = sinon.sandbox.create();
 
 describe('Test rabbit class', function () {
@@ -89,6 +90,16 @@ describe('Test rabbit class', function () {
     await rabbit.publish(`test_${this.name}`, content, headers);
     stub.calledOnce.should.be.true();
     stub.calledWith(content, headers, rabbit.channel, `test_${this.name}`, undefined).should.be.true();
+  });
+
+  it('should publish to queue with Delay', async function () {
+    const stub = sandbox.stub(DelayQueue, 'publishWithDelay');
+    const rabbit = new Rabbit(this.url, { prefix: 'test' });
+    const content = { content: true };
+    const headers = { headers: { test: 1 } };
+    await rabbit.publishWithDelay(`test_${this.name}`, content, headers);
+    stub.calledOnce.should.be.true();
+    stub.calledWith(content, headers, rabbit.channel, `test_${this.name}`).should.be.true();
   });
 
   it('should publish to queue with getReply', async function () {
