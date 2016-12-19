@@ -1,4 +1,4 @@
-import {getNewLogger} from './logger';
+import { getNewLogger } from './logger';
 import Rabbit from './rabbit';
 import * as amqp from 'amqplib';
 import Queue from './queue';
@@ -6,15 +6,24 @@ import * as assert from 'assert';
 
 abstract class BaseQueueHandler {
   public dlqName: string;
-  public queue: Queue;
-  public dlq: Queue;
   public retries: number;
   public retryDelay: number;
   public logger;
   public logEnabled: boolean;
+  public scope: 'SINGLETON' | 'PROTOTYPE';
 
-  constructor(public queueName, public rabbit: Rabbit,
-    {retries = 3, retryDelay = 1000, logger = getNewLogger(`[${queueName}]`), logEnabled = true} = {}) {
+  static SCOPES: { singleton: 'SINGLETON', prototype: 'PROTOTYPE' } = {
+    singleton: 'SINGLETON',
+    prototype: 'PROTOTYPE'
+  };
+
+  constructor(public queueName, public rabbit: Rabbit, {
+    retries = 3,
+    retryDelay = 1000,
+    logger = getNewLogger(`[${queueName}]`),
+    logEnabled = true,
+    scope = (<'SINGLETON' | 'PROTOTYPE'>BaseQueueHandler.SCOPES.singleton)
+  } = {}) {
     assert(typeof logger.debug === 'function', 'logger has no debug method');
     assert(typeof logger.warn === 'function', 'logger has no warn method');
     assert(typeof logger.error === 'function', 'logger has no error method');
@@ -23,7 +32,11 @@ abstract class BaseQueueHandler {
     this.retryDelay = retryDelay;
     this.logger = logger;
     this.logEnabled = logEnabled;
-    this.init();
+    this.scope = scope;
+    this.dlqName = this.getDlq();
+    if (scope === BaseQueueHandler.SCOPES.singleton) {
+      this.createQueues();
+    }
   }
 
   getDlq() {
@@ -42,18 +55,32 @@ abstract class BaseQueueHandler {
     return undefined;
   }
 
-  init() {
-    this.dlqName = this.getDlq();
+  static prototypeFactory<T extends BaseQueueHandler>(queueName, rabbit: Rabbit, options = {}): T {
+    const Constructor = <any>this;
+    const instance = new Constructor(queueName, rabbit, { ...options, scope: BaseQueueHandler.SCOPES.prototype });
+    instance.createQueues();
+    return instance;
+  }
+
+  createQueues() {
     this.rabbit.createQueue(this.queueName, this.getQueueOptions(),
-      (msg, ack) => this.tryHandle(0, msg, ack).catch(e => console.error(e)))
-      .then(queue => {
-        this.queue = queue;
+      (msg, ack) => {
+        if (this.scope === BaseQueueHandler.SCOPES.singleton) {
+          this.tryHandle(0, msg, ack).catch(e => console.error(e));
+        } else {
+          const instance = new (<any>this.constructor)(this.queueName, this.rabbit, {
+            retries: this.retries,
+            retryDelay: this.retryDelay,
+            logger: this.logger,
+            logEnabled: this.logEnabled,
+            scope: this.scope
+          });
+          instance.tryHandle(0, msg, ack).catch(e => console.error(e));
+        }
       })
       .catch(error => this.logger.error(error));
+
     this.rabbit.createQueue(this.dlqName, this.getDlqOptions())
-      .then(queue => {
-        this.dlq = queue;
-      })
       .catch(error => this.logger.error(error));
   }
 

@@ -1,4 +1,4 @@
-import 'should';
+import * as should from 'should';
 import * as assert from 'assert';
 import * as sinon from 'sinon';
 import Rabbit from '../rabbit';
@@ -39,6 +39,30 @@ describe('Test baseQueueHandler', function () {
     handle.calledOnce.should.be.true();
     handle.args[0][0].event.should.eql({ test: 'data' });
     handle.args[0][0].correlationId.should.equal('3');
+  });
+
+  it('should mess context', async function () {
+    const handler = new DemoHandler(this.name, rabbit, { logger: (<any>global).logger });
+    const handle = handler.handle = function ({event}) {
+      this.context = event.test;
+    };
+    await rabbit.publish(this.name, { test: 'data' }, { correlationId: '3' });
+    (<any>handler).context.should.equal('data');
+    await rabbit.publish(this.name, { test: 'data2' }, { correlationId: '4' });
+    (<any>handler).context.should.equal('data2');
+  });
+
+  it('should not mess context', async function () {
+    const handle = DemoHandler.prototype.handle;
+    DemoHandler.prototype.handle = function ({event}) {
+      this.context = event;
+    };
+    const handler = DemoHandler.prototypeFactory(this.name, rabbit, { logger: (<any>global).logger });
+    await rabbit.publish(this.name, { test: 'data' }, { correlationId: '3' });
+    should.equal(undefined, (<any>handler).context);
+    await rabbit.publish(this.name, { test: 'data2' }, { correlationId: '3' });
+    should.equal(undefined, this.context);
+    DemoHandler.prototype.handle = handle;
   });
 
   it('should add to dlq after x retries', async function () {
