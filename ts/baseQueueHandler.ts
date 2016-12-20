@@ -22,7 +22,8 @@ abstract class BaseQueueHandler {
     retryDelay = 1000,
     logger = getNewLogger(`[${queueName}]`),
     logEnabled = true,
-    scope = (<'SINGLETON' | 'PROTOTYPE'>BaseQueueHandler.SCOPES.singleton)
+    scope = (<'SINGLETON' | 'PROTOTYPE'>BaseQueueHandler.SCOPES.singleton),
+    createAndSubscribeToQueue = true
   } = {}) {
     assert(typeof logger.debug === 'function', 'logger has no debug method');
     assert(typeof logger.warn === 'function', 'logger has no warn method');
@@ -34,7 +35,7 @@ abstract class BaseQueueHandler {
     this.logEnabled = logEnabled;
     this.scope = scope;
     this.dlqName = this.getDlq();
-    if (scope === BaseQueueHandler.SCOPES.singleton) {
+    if (createAndSubscribeToQueue) {
       this.createQueues();
     }
   }
@@ -58,7 +59,6 @@ abstract class BaseQueueHandler {
   static prototypeFactory<T extends BaseQueueHandler>(queueName, rabbit: Rabbit, options = {}): T {
     const Constructor = <any>this;
     const instance = new Constructor(queueName, rabbit, { ...options, scope: BaseQueueHandler.SCOPES.prototype });
-    instance.createQueues();
     return instance;
   }
 
@@ -73,7 +73,8 @@ abstract class BaseQueueHandler {
             retryDelay: this.retryDelay,
             logger: this.logger,
             logEnabled: this.logEnabled,
-            scope: this.scope
+            scope: this.scope,
+            createAndSubscribeToQueue: false
           });
           instance.tryHandle(0, msg, ack).catch(e => console.error(e));
         }
