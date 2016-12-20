@@ -25,6 +25,7 @@ It is written in typescript and requires node v6.0.0 or higher.
     prefetch: 1, //default prefetch from queue
     replyPattern: true, //if reply pattern is enabled an exclusive queue is created
     logger: log4js.getLogger(`Rabbit-queue`),
+    scheduledPublish: false,
     prefix: '' //prefix all queues with an application name
   });
 
@@ -111,7 +112,9 @@ It is written in typescript and requires node v6.0.0 or higher.
       retries: 3,
       retryDelay: 1000,
       logEnabled: true, //log queue processing time
-      logger: log4js.getLogger('[demoQueue]') // logging in debug, warn and error.
+      logger: log4js.getLogger('[demoQueue]'), // logging in debug, warn and error.
+      scope: 'SINGLETON', //can also be 'PROTOTYPE' to create a new instance every time
+      createAndSubscribeToQueue: true // used internally no need to overwriteÏÏ
     });
 
   rabbit.publish('demoQueue', { test: 'data' }, { correlationId: '4' });
@@ -139,7 +142,8 @@ It is written in typescript and requires node v6.0.0 or higher.
       retries: 3,
       retryDelay: 1000,
       logEnabled: true,
-      logger: log4js.getLogger('[demoQueue]')
+      logger: log4js.getLogger('[demoQueue]'),
+      scope: 'SINGLETON'
     });
 
   rabbit.getReply('demoQueue', { test: 'data' }, { correlationId: '5' })

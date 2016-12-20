@@ -19,6 +19,7 @@ describe('Test Readme examples', function () {
       prefetch: 1, //default prefetch from queue
       replyPattern: true, //if reply pattern is enabled an exclusive queue is created
       logger: log4js.getLogger(`Rabbit-queue`),
+      scheduledPublish: false,
       prefix: '' //prefix all queues with an application name
     });
 
@@ -117,7 +118,9 @@ describe('Test Readme examples', function () {
         retries: 3,
         retryDelay: 1000,
         logEnabled: true,
-        logger: log4js.getLogger('[demoQueue]')
+        logger: log4js.getLogger('[demoQueue]'),
+        scope: 'SINGLETON', //can also be 'PROTOTYPE' to create a new instance every time
+        createAndSubscribeToQueue: true // used internally no need to overwriteÏÏ
       });
 
     await rabbit.getReply('demoQueue', { test: 'data' }, { correlationId: '5' })
@@ -141,7 +144,8 @@ describe('Test Readme examples', function () {
         retries: 3,
         retryDelay: 1,
         logEnabled: true,
-        logger: log4js.getLogger('[demoQueue]')
+        logger: log4js.getLogger('[demoQueue]'),
+        scope: 'SINGLETON'
       });
 
     await rabbit.getReply('demoQueue', { test: 'data' }, { correlationId: '5' })
