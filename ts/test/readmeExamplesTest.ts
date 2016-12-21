@@ -45,7 +45,7 @@ describe('Test Readme examples', function () {
       .then(() => console.log('message published'));
 
     await rabbit.publishWithDelay('queueName', { test: 'data' }, { correlationId: '1', expiration: '10000' })
-      .then(() => console.log('message published'));
+      .then(() => console.log('message will be published'));
 
     await rabbit.getReply('queueName', { test: 'data' }, { correlationId: '1' })
       .then((reply) => console.log('received reply', reply));

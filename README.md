@@ -56,7 +56,7 @@ It is written in typescript and requires node v6.0.0 or higher.
     .then(() => console.log('message published'));
 
   rabbit.publishWithDelay('queueName', { test: 'data' }, { correlationId: '1', expiration: '10000' })
-    .then(() => console.log('message published'))
+    .then(() => console.log('message will be published'))
 
   rabbit.getReply('queueName', { test: 'data' }, { correlationId: '1' })
     .then((reply) => console.log('received reply', reply));
