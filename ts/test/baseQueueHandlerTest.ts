@@ -36,6 +36,7 @@ describe('Test baseQueueHandler', function () {
     const handler = new DemoHandler(this.name, rabbit, { logger: (<any>global).logger });
     const handle = handler.handle = sandbox.stub();
     await rabbit.publish(this.name, { test: 'data' }, { correlationId: '3' });
+    await new Promise(resolve => setTimeout(resolve, 10));
     handle.calledOnce.should.be.true();
     handle.args[0][0].event.should.eql({ test: 'data' });
     handle.args[0][0].correlationId.should.equal('3');
@@ -47,6 +48,7 @@ describe('Test baseQueueHandler', function () {
       this.context = event.test;
     };
     await rabbit.publish(this.name, { test: 'data' }, { correlationId: '3' });
+    await new Promise(resolve => setTimeout(resolve, 10));
     (<any>handler).context.should.equal('data');
     await rabbit.publish(this.name, { test: 'data2' }, { correlationId: '4' });
     (<any>handler).context.should.equal('data2');
@@ -81,13 +83,14 @@ describe('Test baseQueueHandler', function () {
     await rabbit.connected;
     sandbox.clock.tick(100);
     await rabbit.connected;
+    sandbox.clock.tick(100);
     sandbox.clock.restore();
-    await new Promise(resolve => setTimeout(resolve, 200));
+    await new Promise(resolve => setTimeout(resolve, 300));
     handle.calledThrice.should.be.true();
     afterDlq.calledOnce.should.be.true();
   });
 
-  it('should add to dlq after x retries', async function () {
+  it('should add to dlq after x retries using prototype scope', async function () {
     sandbox.useFakeTimers();
     const handler = DemoHandler.prototypeFactory(this.name, rabbit,
       {
@@ -107,7 +110,8 @@ describe('Test baseQueueHandler', function () {
     sandbox.clock.tick(100);
     await rabbit.connected;
     sandbox.clock.restore();
-    await new Promise(resolve => setTimeout(resolve, 200));
+    sandbox.clock.tick(100);
+    await new Promise(resolve => setTimeout(resolve, 400));
     afterDlq.calledOnce.should.be.true();
     DemoHandler.prototype.handle = handle;
     DemoHandler.prototype.afterDlq = originalAfterDlq;
@@ -131,15 +135,17 @@ describe('Test baseQueueHandler', function () {
       }
     });
     await rabbit.publish(this.name, { test: 'data' }, { correlationId: '3' });
-    sandbox.clock.tick(100);
-    await rabbit.connected;
-    sandbox.clock.tick(100);
-    await rabbit.connected;
-    sandbox.clock.restore();
     const publish = handler.rabbit.publish = sandbox.spy(handler.rabbit, 'publish');
-    await new Promise(resolve => setTimeout(resolve, 200));
+    sandbox.clock.tick(100);
+    await rabbit.connected;
+    sandbox.clock.tick(100);
+    await rabbit.connected;
+    sandbox.clock.tick(100);
+    sandbox.clock.restore();
+    await new Promise(resolve => setTimeout(resolve, 400));
     afterDlq.calledOnce.should.be.true();
-    publish.args[0][1].should.eql('{"test":"data"}');
+    publish.calledTwice.should.be.true();
+    publish.args[publish.callCount - 1][1].should.eql('{"test":"data"}');
   });
 
 });
