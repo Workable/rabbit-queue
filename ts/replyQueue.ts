@@ -37,7 +37,10 @@ export function getReply(content: any, headers: amqp.Options.Publish, channel: C
 function onReply(msg: amqp.Message) {
   const id = msg.properties.correlationId;
   const replyHandler = replyHandlers[id];
-  if (!replyHandler) { return; }
+  if (!replyHandler) {
+    getLogger().error(`No reply Handler found for ${id}`);
+    return;
+  }
   delete replyHandlers[id];
 
   const body = msg.content.toString();
