@@ -84,7 +84,7 @@ export default class Rabbit extends EventEmitter {
   async createQueue(
     name: string,
     options: amqp.Options.AssertQueue & { prefix?: string } = {},
-    handler?: (msg: any, ack: (reply) => any) => any) {
+    handler?: (msg: any, ack: (error?, reply?) => any) => any) {
 
     name = this.updateName(name, options.prefix);
     await this.connected;

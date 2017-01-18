@@ -85,7 +85,7 @@ abstract class BaseQueueHandler {
       .catch(error => this.logger.error(error));
   }
 
-  async tryHandle(retries, msg: amqp.Message, ack: (reply) => any) {
+  async tryHandle(retries, msg: amqp.Message, ack: (error, reply) => any) {
     try {
       const startTime = this.getTime();
       var body = msg.content.toString();
@@ -96,7 +96,7 @@ abstract class BaseQueueHandler {
       const result = await this.handle({ msg, event, correlationId, startTime });
 
       this.logger.debug('[%s] #%s Acknowledging %s ', correlationId, retries + 1, this.queueName);
-      ack(result);
+      ack(null, result);
       if (this.logEnabled) {
         this.logTime(startTime, correlationId);
       }
@@ -153,7 +153,7 @@ abstract class BaseQueueHandler {
       this.logger.warn('[%s] Adding to dlq: %s after %s retries', correlationId, this.dlqName, retries);
       await this.rabbit.publish(this.dlqName, event, msg.properties);
       await this.afterDlq({ msg, event });
-      ack();
+      ack(msg.properties.headers.errors.message);
     } catch (err) {
       this.logger.error(err);
       await this.rabbit.publish(this.dlqName, msg.content.toString(), msg.properties);

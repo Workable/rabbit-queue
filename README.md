@@ -49,7 +49,7 @@ It is written in typescript and requires node v6.0.0 or higher.
 
   rabbit.createQueue('queueName', { durable: false }, (msg, ack) => {
     console.log(msg.content.toString());
-    ack('response');
+    ack(null, 'response');
   }).then(() => console.log('queue created'));
 
   rabbit.publish('queueName', { test: 'data' }, { correlationId: '1' })
@@ -81,7 +81,7 @@ It is written in typescript and requires node v6.0.0 or higher.
 
   rabbit.createQueue('queueName', { durable: false }, (msg, ack) => {
     console.log(msg.content.toString());
-    ack('response');
+    ack(null, 'response');
   }).then(() => console.log('queue created'));
 
   rabbit.bindToExchange('queueName', 'amq.topic', 'routingKey');
@@ -173,7 +173,8 @@ It is written in typescript and requires node v6.0.0 or higher.
     });
 
   rabbit.getReply('demoQueue', { test: 'data' }, { correlationId: '5' })
-    .then((reply) => console.log('received reply', reply)); //reply will be '';
+    .then(reply => console.log('received reply', reply));
+    .catch(error => console.log('error', error)); //error will be 'test Error';
 ```
 
 ## Tests

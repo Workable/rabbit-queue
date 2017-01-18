@@ -57,7 +57,7 @@ describe('Test DelayQueue', function () {
     let resolve;
     const promise = new Promise((r, reject) => { resolve = r; });
     await queue.subscribe(function (msg, ack) {
-      ack(null);
+      ack();
       resolve(msg);
     });
 

@@ -7,6 +7,7 @@ import raceUntil from 'race-until';
 
 export default class Queue {
   static STOP_PROPAGATION = { stopPropagation: true };
+  static ERROR_DURING_REPLY = { error: true, error_code: 999 };
 
   defaultOptions = {
     durable: true, noAck: false
@@ -35,7 +36,7 @@ export default class Queue {
     await this.channel.assertQueue(this.name, queueOptions);
   }
 
-  async subscribe(handler: (msg: any, ack: (reply) => any) => any) {
+  async subscribe(handler: (msg: any, ack: (error?, reply?) => any) => any) {
     await this.created;
     this.handler = handler;
     let tag = await this.channel.consume(this.name, this.onMessage.bind(this), { noAck: this.options.noAck });
@@ -64,8 +65,11 @@ export default class Queue {
     };
     if (!msg) { return; }
     const hasReply = !!msg.properties.replyTo;
-    this.handler(msg, (reply) => {
+    this.handler(msg, (error, reply) => {
       if (hasReply && reply !== Queue.STOP_PROPAGATION) {
+        if (error) {
+          reply = Object.assign({}, Queue.ERROR_DURING_REPLY, { error_message: error });
+        }
         var replyBuffer = new Buffer(JSON.stringify(reply || ''));
         this.channel.sendToQueue(msg.properties.replyTo, replyBuffer, {
           correlationId: msg.properties.correlationId

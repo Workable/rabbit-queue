@@ -38,7 +38,7 @@ describe('Test Readme examples', function () {
     const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
     await rabbit.createQueue('queueName', { durable: false }, (msg, ack) => {
       console.log(msg.content.toString());
-      ack('response');
+      ack(null, 'response');
     }).then(() => console.log('queue created'));
 
     await rabbit.publish('queueName', { test: 'data' }, { correlationId: '1' })
@@ -64,7 +64,7 @@ describe('Test Readme examples', function () {
     const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
     await rabbit.createQueue('queueName', { durable: false }, (msg, ack) => {
       console.log(msg.content.toString());
-      ack('response');
+      ack(null, 'response');
     }).then(() => console.log('queue created'));
 
     await rabbit.bindToExchange('queueName', 'amq.topic', 'routingKey');
@@ -149,6 +149,7 @@ describe('Test Readme examples', function () {
       });
 
     await rabbit.getReply('demoQueue', { test: 'data' }, { correlationId: '5' })
-      .then((reply) => console.log('received reply', reply)); //reply will be '';
-  })
+      .then(reply => console.log('received reply', reply))
+      .catch(error => console.log('error', error)); //error will be 'test Error';
+  });
 });

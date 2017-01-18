@@ -36,7 +36,7 @@ describe('Test Exchange', function () {
     const content = { content: true };
     const headers = { headers: { test: 1 }, correlationId: '1', persistent: false, replyTo: rabbit.channel.replyName };
     const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
-    await queue.subscribe((msg, ack) => ack('result'));
+    await queue.subscribe((msg, ack) => ack(null, 'result'));
     await rabbit.bindToTopic(this.name, 'binding');
     const result = await Exchange.getReply(rabbit.channel, 'amq.topic', 'binding', content, headers);
     result.should.equal('result');
@@ -47,9 +47,9 @@ describe('Test Exchange', function () {
   it('should publish to topic with getReply and timeout and fail', async function () {
     const spy = sandbox.spy(rabbit.channel, 'publish');
     const content = { content: true };
-    const headers = { headers: { test: 1 }, correlationId: '1', persistent: false, replyTo: rabbit.channel.replyName };
+    const headers = { headers: { test: 1 }, correlationId: '2', persistent: false, replyTo: rabbit.channel.replyName };
     const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
-    await queue.subscribe((msg, ack) => setTimeout(() => ack('result'), 10));
+    await queue.subscribe((msg, ack) => setTimeout(() => ack(null, 'result'), 10));
     await rabbit.bindToTopic(this.name, 'binding');
     try {
       await Exchange.getReply(rabbit.channel, 'amq.topic', 'binding', content, headers, 1);
@@ -58,6 +58,24 @@ describe('Test Exchange', function () {
       error.should.eql(new Error('Timed out'));
     }
     spy.calledOnce.should.be.true();
+    await new Promise(resolve => setTimeout(resolve, 10));
+    spy.args[0].slice(0, 4).should.eql(['amq.topic', 'binding', new Buffer(JSON.stringify(content)), headers]);
+  });
+
+  it('should publish to topic with getReply and fail', async function () {
+    const spy = sandbox.spy(rabbit.channel, 'publish');
+    const content = { content: true };
+    const headers = { headers: { test: 1 }, correlationId: '3', persistent: false, replyTo: rabbit.channel.replyName };
+    const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
+    await queue.subscribe((msg, ack) => setTimeout(() => ack('error'), 10));
+    await rabbit.bindToTopic(this.name, 'binding');
+    try {
+      await Exchange.getReply(rabbit.channel, 'amq.topic', 'binding', content, headers);
+      assert(false);
+    } catch (error) {
+      error.should.eql('error');
+    }
+    spy.calledTwice.should.be.true();
     spy.args[0].slice(0, 4).should.eql(['amq.topic', 'binding', new Buffer(JSON.stringify(content)), headers]);
   });
 });

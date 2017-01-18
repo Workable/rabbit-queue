@@ -3,6 +3,7 @@ import * as amqp from 'amqplib';
 import { getLogger } from './logger';
 import * as assert from 'assert';
 import * as uuid from 'uuid';
+import Queue from './queue';
 
 let replyHandlers = {};
 
@@ -15,7 +16,7 @@ export async function createReplyQueue(channel: Channel) {
 };
 
 export function addHandler(correlationId, handler: (err: Error, body: string) => void) {
-  assert(!replyHandlers[correlationId], 'Already added reply handler with this id.');
+  assert(!replyHandlers[correlationId], `Already added reply handler with this id: ${correlationId}.`);
   replyHandlers[correlationId] = handler;
 }
 
@@ -46,5 +47,9 @@ function onReply(msg: amqp.Message) {
   const body = msg.content.toString();
   getLogger().debug(`[${id}] -> Returning reply ${msg.content.byteLength} bytes`);
   const obj = JSON.parse(body);
-  replyHandler(null, obj);
+  if (obj.error && obj.error_code === Queue.ERROR_DURING_REPLY.error_code) {
+    replyHandler(obj.error_message, null);
+  } else {
+    replyHandler(null, obj);
+  }
 };

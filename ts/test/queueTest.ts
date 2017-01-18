@@ -97,7 +97,7 @@ describe('Test Queue class', function () {
     const content = { content: true };
     const headers = { headers: { test: 1 }, correlationId: '1', persistent: false, replyTo: rabbit.channel.replyName };
     const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
-    await queue.subscribe((msg, ack) => ack('result'));
+    await queue.subscribe((msg, ack) => ack(null, 'result'));
     const result = await Queue.getReply(content, headers, rabbit.channel, this.name, queue);
     result.should.equal('result');
     spy.calledTwice.should.be.true();
@@ -109,7 +109,7 @@ describe('Test Queue class', function () {
     const content = { content: true };
     const headers = { headers: { test: 1 }, correlationId: '1', persistent: false, replyTo: rabbit.channel.replyName };
     const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
-    await queue.subscribe((msg, ack) => ack(Queue.STOP_PROPAGATION));
+    await queue.subscribe((msg, ack) => ack(null, Queue.STOP_PROPAGATION));
     setTimeout(() => rabbit.publish(rabbit.channel.replyName, 'new_result', headers, ''), 10);
     const result = await Queue.getReply(content, headers, rabbit.channel, this.name, queue);
     result.should.equal('new_result');
@@ -122,9 +122,25 @@ describe('Test Queue class', function () {
     const content = { content: true };
     const headers = { headers: { test: 1 }, correlationId: '1', persistent: false, replyTo: rabbit.channel.replyName };
     const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
-    await queue.subscribe((msg, ack) => setTimeout(() => ack('result'), 1));
+    await queue.subscribe((msg, ack) => setTimeout(() => ack(null, 'result'), 1));
     const result = await Queue.getReply(content, headers, rabbit.channel, this.name, queue, 10);
     result.should.equal('result');
+    spy.calledTwice.should.be.true();
+    spy.args[0].slice(0, 3).should.eql([this.name, new Buffer(JSON.stringify(content)), headers]);
+  });
+
+  it('should publish to queue with getReply and reply with error', async function () {
+    const spy = sandbox.spy(rabbit.channel, 'sendToQueue');
+    const content = { content: true };
+    const headers = { headers: { test: 1 }, correlationId: '1', persistent: false, replyTo: rabbit.channel.replyName };
+    const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
+    await queue.subscribe((msg, ack) => setTimeout(() => ack('error'), 1));
+    try {
+      await Queue.getReply(content, headers, rabbit.channel, this.name, queue, 10);
+      assert(false);
+    } catch (error) {
+      error.should.eql('error');
+    }
     spy.calledTwice.should.be.true();
     spy.args[0].slice(0, 3).should.eql([this.name, new Buffer(JSON.stringify(content)), headers]);
   });
@@ -134,7 +150,7 @@ describe('Test Queue class', function () {
     const content = { content: true };
     const headers = { headers: { test: 1 }, correlationId: '1', persistent: false, replyTo: rabbit.channel.replyName };
     const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
-    await queue.subscribe((msg, ack) => setTimeout(() => ack('result'), 10));
+    await queue.subscribe((msg, ack) => setTimeout(() => ack(null, 'result'), 10));
     try {
       await Queue.getReply(content, headers, rabbit.channel, this.name, queue, 1);
       assert(false);
