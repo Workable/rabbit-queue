@@ -94,7 +94,7 @@ describe('Test rabbit class', function () {
 
   it('should publish to queue with Delay', async function () {
     const stub = sandbox.stub(DelayQueue, 'publishWithDelay');
-    const rabbit = new Rabbit(this.url, { prefix: 'test' });
+    const rabbit = new Rabbit(this.url, { prefix: 'test', scheduledPublish: true });
     const content = { content: true };
     const headers = { headers: { test: 1 } };
     await rabbit.publishWithDelay(`test_${this.name}`, content, headers);
