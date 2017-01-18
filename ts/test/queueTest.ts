@@ -139,7 +139,7 @@ describe('Test Queue class', function () {
       await Queue.getReply(content, headers, rabbit.channel, this.name, queue, 10);
       assert(false);
     } catch (error) {
-      error.should.eql('error');
+      error.should.eql(new Error('error'));
     }
     spy.calledTwice.should.be.true();
     spy.args[0].slice(0, 3).should.eql([this.name, new Buffer(JSON.stringify(content)), headers]);

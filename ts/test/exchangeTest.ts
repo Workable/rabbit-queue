@@ -73,7 +73,7 @@ describe('Test Exchange', function () {
       await Exchange.getReply(rabbit.channel, 'amq.topic', 'binding', content, headers);
       assert(false);
     } catch (error) {
-      error.should.eql('error');
+      error.should.eql(new Error('error'));
     }
     spy.calledTwice.should.be.true();
     spy.args[0].slice(0, 4).should.eql(['amq.topic', 'binding', new Buffer(JSON.stringify(content)), headers]);
