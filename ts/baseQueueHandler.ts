@@ -152,8 +152,8 @@ abstract class BaseQueueHandler {
       const event = JSON.parse(body);
       this.logger.warn('[%s] Adding to dlq: %s after %s retries', correlationId, this.dlqName, retries);
       await this.rabbit.publish(this.dlqName, event, msg.properties);
-      await this.afterDlq({ msg, event });
-      ack(msg.properties.headers.errors.message);
+      const response = await this.afterDlq({ msg, event });
+      ack(msg.properties.headers.errors.message, response);
     } catch (err) {
       this.logger.error(err);
       await this.rabbit.publish(this.dlqName, msg.content.toString(), msg.properties);
