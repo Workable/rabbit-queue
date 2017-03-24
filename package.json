@@ -26,10 +26,10 @@
     "node": ">=6.0.0"
   },
   "dependencies": {
-    "amqplib": "^0.4.2",
-    "log4js": "^0.6.38",
-    "race-until": "^1.0.2",
-    "uuid": "^3.0.0"
+    "amqplib": "^0.5.1",
+    "log4js": "^1.1.1",
+    "race-until": "^1.0.3",
+    "uuid": "^3.0.1"
   },
   "typings": "js/index",
   "devDependencies": {
