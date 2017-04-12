@@ -9,12 +9,12 @@ describe('Test baseQueueHandler', function () {
   let rabbit: Rabbit;
 
   class DemoHandler extends BaseQueueHandler {
-    handle({msg, event, correlationId, startTime}) {
+    handle({ msg, event, correlationId, startTime }) {
       console.log('Received: ', event);
       console.log('With correlation id: ' + correlationId);
     }
 
-    afterDlq({msg, event}) {
+    afterDlq({ msg, event }) {
       // Something to do after added to dlq
     }
   };
@@ -44,7 +44,7 @@ describe('Test baseQueueHandler', function () {
 
   it('should mess context', async function () {
     const handler = new DemoHandler(this.name, rabbit, { logger: (<any>global).logger });
-    const handle = handler.handle = function ({event}) {
+    const handle = handler.handle = function ({ event }) {
       this.context = event.test;
     };
     await rabbit.publish(this.name, { test: 'data' }, { correlationId: '3' });
@@ -56,7 +56,7 @@ describe('Test baseQueueHandler', function () {
 
   it('should not mess context', async function () {
     const handle = DemoHandler.prototype.handle;
-    DemoHandler.prototype.handle = function ({event}) {
+    DemoHandler.prototype.handle = function ({ event }) {
       this.context = event;
     };
     const handler = DemoHandler.prototypeFactory(this.name, rabbit, { logger: (<any>global).logger });
@@ -90,6 +90,44 @@ describe('Test baseQueueHandler', function () {
     afterDlq.calledOnce.should.be.true();
   });
 
+  it('should add to dlq after x retries and get error response', async function () {
+    const handler = new DemoHandler(this.name, rabbit,
+      {
+        retries: 0, retryDelay: 10,
+        logger: (<any>global).logger
+      });
+    const handle = handler.handle = sandbox.spy(() => {
+      throw new Error('test error');
+    });
+    handler.afterDlq = function () {
+      return 'response';
+    }
+    try {
+      await rabbit.getReply(this.name, { test: 'data' }, { correlationId: '4' });
+    } catch (e) {
+      e.should.eql(new Error('test error'));
+    }
+  });
+
+  it('should add to dlq after x retries and get no response because afterDlq returns STOP_PROPAGATION', async function () {
+    const handler = new DemoHandler(this.name, rabbit,
+      {
+        retries: 0, retryDelay: 10,
+        logger: (<any>global).logger
+      });
+    const handle = handler.handle = sandbox.spy(() => {
+      throw new Error('test error');
+    });
+    handler.afterDlq = function () {
+      return Rabbit.STOP_PROPAGATION;
+    }
+    try {
+      await rabbit.getReply(this.name, { test: 'data' }, { correlationId: '6' }, '', 200);
+    } catch (e) {
+      e.should.eql(new Error('Timed out'));
+    }
+  });
+
   it('should add to dlq after x retries using prototype scope', async function () {
     sandbox.useFakeTimers();
     const handler = DemoHandler.prototypeFactory(this.name, rabbit,
@@ -99,7 +137,7 @@ describe('Test baseQueueHandler', function () {
       });
     const handle = DemoHandler.prototype.handle;
     const originalAfterDlq = DemoHandler.prototype.afterDlq
-    DemoHandler.prototype.handle = function ({event}) {
+    DemoHandler.prototype.handle = function ({ event }) {
       throw new Error('test error');
     };
 
@@ -148,4 +186,22 @@ describe('Test baseQueueHandler', function () {
     publish.args[publish.callCount - 1][1].should.eql('{"test":"data"}');
   });
 
+  it('should add to dlq after x retries and get error response even if afterDlq throws error', async function () {
+    const handler = new DemoHandler(this.name, rabbit,
+      {
+        retries: 0, retryDelay: 10,
+        logger: (<any>global).logger
+      });
+    const handle = handler.handle = sandbox.spy(() => {
+      throw new Error('test error');
+    });
+    handler.afterDlq = function () {
+      throw new Error('test afterDlq error');
+    }
+    try {
+      await rabbit.getReply(this.name, { test: 'data' }, { correlationId: '4' });
+    } catch (e) {
+      e.should.eql(new Error('test afterDlq error'));
+    }
+  });
 });

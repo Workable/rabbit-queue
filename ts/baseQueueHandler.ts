@@ -157,6 +157,7 @@ abstract class BaseQueueHandler {
     } catch (err) {
       this.logger.error(err);
       await this.rabbit.publish(this.dlqName, msg.content.toString(), msg.properties);
+      ack(err.message, null);
     }
   }
 }
