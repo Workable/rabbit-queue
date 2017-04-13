@@ -1,8 +1,6 @@
-.idea
 npm-debug.log
 node_modules
 coverage
-.vscode
 typings
 js
-.nc_history
+.*
