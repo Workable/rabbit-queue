@@ -3,3 +3,7 @@ typings
 tslint.json
 coverage
 test
+node_modules
+.nc_history
+.idea
+npm-debug.log

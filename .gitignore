@@ -5,3 +5,4 @@ coverage
 .vscode
 typings
 js
+.nc_history
