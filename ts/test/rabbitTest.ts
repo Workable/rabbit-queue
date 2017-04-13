@@ -6,6 +6,8 @@ import Queue from '../queue';
 import Exchange from '../exchange';
 import * as ReplyQueue from '../replyQueue';
 import * as DelayQueue from '../delayQueue';
+import * as amqp from 'amqplib';
+
 const sandbox = sinon.sandbox.create();
 
 describe('Test rabbit class', function () {
@@ -34,6 +36,16 @@ describe('Test rabbit class', function () {
       rabbit.once('disconnected', done);
       setTimeout(() => rabbit.close(), 100);
     });
+  });
+
+  it('should call amqp connect with socketOptions', async function () {
+    const connectStub = sandbox.spy(amqp, 'connect');
+    const rabbit = new Rabbit(this.url, { socketOptions: 'socketOptions' });
+    (<any>rabbit).connect();
+    await rabbit.connected;
+    connectStub.args.should.eql([
+      [this.url, 'socketOptions']
+    ]);
   });
 
   it('should call connect only once', async function () {

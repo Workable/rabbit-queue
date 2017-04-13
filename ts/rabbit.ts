@@ -19,15 +19,17 @@ export default class Rabbit extends EventEmitter {
   public replyPattern: boolean;
   public prefix: string;
   public scheduledPublish: boolean;
+  public socketOptions;
 
   constructor(public url: string,
-    {prefetch = 1, replyPattern = true, logger = null, prefix = '', scheduledPublish = false} = {}) {
+    { prefetch = 1, replyPattern = true, logger = null, prefix = '', scheduledPublish = false, socketOptions = {} } = {}) {
     super();
     assert(url, 'Url is required!');
     this.prefetch = prefetch;
     this.replyPattern = replyPattern;
     this.prefix = prefix;
     this.scheduledPublish = scheduledPublish;
+    this.socketOptions = socketOptions;
     init(logger);
     this.reconnect();
   }
@@ -35,7 +37,7 @@ export default class Rabbit extends EventEmitter {
   private async connect() {
     if (this.connecting) { return; }
     this.connecting = true;
-    let connection = await amqp.connect(this.url);
+    let connection = await amqp.connect(this.url, this.socketOptions);
     let channel = await this.createChannel(connection);
     await this.initChannel(channel);
   }
