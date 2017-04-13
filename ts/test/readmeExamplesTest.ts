@@ -20,7 +20,8 @@ describe('Test Readme examples', function () {
       replyPattern: true, //if reply pattern is enabled an exclusive queue is created
       logger: log4js.getLogger(`Rabbit-queue`),
       scheduledPublish: false,
-      prefix: '' //prefix all queues with an application name
+      prefix: '', //prefix all queues with an application name
+      socketOptions: {} // socketOptions will be passed as a second param to amqp.connect and from ther to the socket library (net or tls)
     });
 
     rabbit.on('connected', () => {
@@ -77,12 +78,12 @@ describe('Test Readme examples', function () {
   it('test advanced usage', async function () {
     const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
     class DemoHandler extends BaseQueueHandler {
-      handle({msg, event, correlationId, startTime}) {
+      handle({ msg, event, correlationId, startTime }) {
         console.log('Received: ', event);
         console.log('With correlation id: ' + correlationId);
       }
 
-      afterDlq({msg, event}) {
+      afterDlq({ msg, event }) {
         // Something to do after added to dlq
       }
     }
@@ -102,13 +103,13 @@ describe('Test Readme examples', function () {
   it('test advanced usage with getReply', async function () {
     const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
     class DemoHandler extends BaseQueueHandler {
-      handle({msg, event, correlationId, startTime}) {
+      handle({ msg, event, correlationId, startTime }) {
         console.log('Received: ', event);
         console.log('With correlation id: ' + correlationId);
         return Promise.resolve('reply'); // could be return 'reply';
       }
 
-      afterDlq({msg, event}) {
+      afterDlq({ msg, event }) {
         // Something to do after added to dlq
       }
     }
@@ -130,11 +131,11 @@ describe('Test Readme examples', function () {
   it('test advanced usage add to dlq', async function () {
     const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
     class DemoHandler extends BaseQueueHandler {
-      handle({msg, event, correlationId, startTime}) {
+      handle({ msg, event, correlationId, startTime }) {
         return Promise.reject(new Error('test Error')); //throw new Error('test error');
       }
 
-      afterDlq({msg, event}) {
+      afterDlq({ msg, event }) {
         console.log('added to dlq');
       }
     }

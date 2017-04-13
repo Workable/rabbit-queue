@@ -26,7 +26,8 @@ It is written in typescript and requires node v6.0.0 or higher.
     replyPattern: true, //if reply pattern is enabled an exclusive queue is created
     logger: log4js.getLogger(`Rabbit-queue`),
     scheduledPublish: false,
-    prefix: '' //prefix all queues with an application name
+    prefix: '', //prefix all queues with an application name
+    socketOptions: {}Ï // socketOptions will be passed as a second param to amqp.connect and from ther to the socket library (net or tls)
   });
 
   rabbit.on('connected', () => {
