@@ -111,7 +111,9 @@ describe('Test rabbit class', function () {
     const headers = { headers: { test: 1 } };
     await rabbit.publishWithDelay(`test_${this.name}`, content, headers);
     stub.calledOnce.should.be.true();
-    stub.calledWith(content, headers, rabbit.channel, `test_${this.name}`).should.be.true();
+    stub.args.should.eql([
+      ['test_delay', content, headers, rabbit.channel, `test_${this.name}`]
+    ]);
   });
 
   it('should publish to queue with getReply', async function () {

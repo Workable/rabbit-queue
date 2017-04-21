@@ -36,7 +36,7 @@ describe('Test Readme examples', function () {
   });
 
   it('test usage examples', async function () {
-    const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
+    const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost', { scheduledPublish: true });
     await rabbit.createQueue('queueName', { durable: false }, (msg, ack) => {
       console.log(msg.content.toString());
       ack(null, 'response');

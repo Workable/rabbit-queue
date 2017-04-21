@@ -2,7 +2,7 @@ import * as amqp from 'amqplib';
 import { EventEmitter } from 'events';
 import { init, getLogger } from './logger';
 import { createReplyQueue } from './replyQueue';
-import { createDelayQueue, publishWithDelay } from './delayQueue';
+import { createDelayQueueReply, publishWithDelay } from './delayQueue';
 import { Channel } from './channel';
 import Queue from './queue';
 import Exchange from './exchange';
@@ -68,7 +68,7 @@ export default class Rabbit extends EventEmitter {
       await createReplyQueue(this.channel);
     }
     if (this.scheduledPublish) {
-      await createDelayQueue(this.channel, this.updateName('delay'));
+      await createDelayQueueReply(this.channel, this.updateName('delay'));
     }
     this.emit('connected');
     this.connecting = false;
@@ -125,9 +125,12 @@ export default class Rabbit extends EventEmitter {
   }
 
   async publishWithDelay(name: string, obj, headers?: amqp.Options.Publish, prefix?: string) {
+    if (!this.scheduledPublish) {
+      throw new Error('scheduledPublish is not enabled');
+    }
     name = this.updateName(name, prefix);
     await this.connected;
-    await publishWithDelay(obj, headers, this.channel, name);
+    await publishWithDelay(this.updateName('delay'), obj, headers, this.channel, name);
   }
 
   async getReply(name: string, obj, headers: amqp.Options.Publish, prefix?: string, timeout?: number) {

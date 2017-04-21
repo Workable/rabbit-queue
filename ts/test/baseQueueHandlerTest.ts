@@ -101,7 +101,7 @@ describe('Test baseQueueHandler', function () {
     });
     handler.afterDlq = function () {
       return 'response';
-    }
+    };
     try {
       await rabbit.getReply(this.name, { test: 'data' }, { correlationId: '4' });
     } catch (e) {

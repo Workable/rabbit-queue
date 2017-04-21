@@ -27,7 +27,7 @@ It is written in typescript and requires node v6.0.0 or higher.
     logger: log4js.getLogger(`Rabbit-queue`),
     scheduledPublish: false,
     prefix: '', //prefix all queues with an application name
-    socketOptions: {}Ï // socketOptions will be passed as a second param to amqp.connect and from ther to the socket library (net or tls)
+    socketOptions: {} // socketOptions will be passed as a second param to amqp.connect and from ther to the socket library (net or tls)
   });
 
   rabbit.on('connected', () => {
@@ -46,7 +46,7 @@ It is written in typescript and requires node v6.0.0 or higher.
 
 ```javascript
   const {Rabbit} = require('rabbit-queue');
-  const rabbit = new Rabbit('amqp://localhost');
+  const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost', { scheduledPublish: true });
 
   rabbit.createQueue('queueName', { durable: false }, (msg, ack) => {
     console.log(msg.content.toString());
@@ -56,6 +56,7 @@ It is written in typescript and requires node v6.0.0 or higher.
   rabbit.publish('queueName', { test: 'data' }, { correlationId: '1' })
     .then(() => console.log('message published'));
 
+  // Please note that a queue will be created for each different expiration used:  prefix_delay_expiration.
   rabbit.publishWithDelay('queueName', { test: 'data' }, { correlationId: '1', expiration: '10000' })
     .then(() => console.log('message will be published'))
 
@@ -177,6 +178,12 @@ It is written in typescript and requires node v6.0.0 or higher.
     .then(reply => console.log('received reply', reply));
     .catch(error => console.log('error', error)); //error will be 'test Error';
 ```
+
+### Changelog
+
+#### v1.x.x to V2.x.x
+
+  Queue subscribe 2ond param `ack` was updated. Now it accepts as 1st param an error and as a second the response. Rpc calls will throw an error if the first param is defined.
 
 ## Tests
 
