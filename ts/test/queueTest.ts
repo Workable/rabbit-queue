@@ -89,7 +89,7 @@ describe('Test Queue class', function () {
     const queue = new Queue(rabbit.channel, this.name, { exclusive: true, priority: 10 });
     await Queue.publish(content, headers, rabbit.channel, this.name, queue);
     spy.calledOnce.should.be.true();
-    spy.args[0].slice(0, 3).should.eql([this.name, new Buffer(JSON.stringify(content)), headers]);
+    spy.args[0].slice(0, 3).should.eql([this.name, Buffer.from(JSON.stringify(content)), headers]);
   });
 
   it('should publish to queue with getReply', async function () {
@@ -101,7 +101,7 @@ describe('Test Queue class', function () {
     const result = await Queue.getReply(content, headers, rabbit.channel, this.name, queue);
     result.should.equal('result');
     spy.calledTwice.should.be.true();
-    spy.args[0].slice(0, 3).should.eql([this.name, new Buffer(JSON.stringify(content)), headers]);
+    spy.args[0].slice(0, 3).should.eql([this.name, Buffer.from(JSON.stringify(content)), headers]);
   });
 
   it('should publish to queue with getReply but get reply after queue acknowledment', async function () {
@@ -114,7 +114,7 @@ describe('Test Queue class', function () {
     const result = await Queue.getReply(content, headers, rabbit.channel, this.name, queue);
     result.should.equal('new_result');
     spy.calledTwice.should.be.true();
-    spy.args[0].slice(0, 3).should.eql([this.name, new Buffer(JSON.stringify(content)), headers]);
+    spy.args[0].slice(0, 3).should.eql([this.name, Buffer.from(JSON.stringify(content)), headers]);
   });
 
   it('should publish to queue with getReply and timeout', async function () {
@@ -126,7 +126,7 @@ describe('Test Queue class', function () {
     const result = await Queue.getReply(content, headers, rabbit.channel, this.name, queue, 10);
     result.should.equal('result');
     spy.calledTwice.should.be.true();
-    spy.args[0].slice(0, 3).should.eql([this.name, new Buffer(JSON.stringify(content)), headers]);
+    spy.args[0].slice(0, 3).should.eql([this.name, Buffer.from(JSON.stringify(content)), headers]);
   });
 
   it('should publish to queue with getReply and reply with error', async function () {
@@ -158,7 +158,7 @@ describe('Test Queue class', function () {
       error.should.eql(new Error('Timed out'));
     }
     spy.calledOnce.should.be.true();
-    spy.args[0].slice(0, 3).should.eql([this.name, new Buffer(JSON.stringify(content)), headers]);
+    spy.args[0].slice(0, 3).should.eql([this.name, Buffer.from(JSON.stringify(content)), headers]);
   });
 
   it('should bind to exchange', async function () {
