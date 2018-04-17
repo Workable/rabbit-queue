@@ -70,7 +70,7 @@ export default class Queue {
         if (error) {
           reply = Object.assign({}, Queue.ERROR_DURING_REPLY, { error_message: error });
         }
-        var replyBuffer = new Buffer(JSON.stringify(reply || ''));
+        var replyBuffer = Buffer.from(JSON.stringify(reply || ''));
         this.channel.sendToQueue(msg.properties.replyTo, replyBuffer, {
           correlationId: msg.properties.correlationId
         }, ack);
@@ -91,7 +91,7 @@ export default class Queue {
         persistent: true,
         correlationId
       }, headers);
-      const bufferContent = new Buffer(msg);
+      const bufferContent = Buffer.from(msg);
       getLogger().debug(`[${correlationId}] <- Publishing to queue ${name} ${bufferContent.byteLength} bytes`);
       channel.sendToQueue(name, bufferContent, headers, (err, ok) => err ? reject(err) : resolve(ok));
     });
