@@ -1,8 +1,8 @@
-import { getNewLogger } from './logger';
 import Rabbit from './rabbit';
 import * as amqp from 'amqplib';
 import Queue from './queue';
 import * as assert from 'assert';
+import * as log4js from '@log4js-node/log4js-api';
 
 abstract class BaseQueueHandler {
   public dlqName: string;
@@ -20,7 +20,7 @@ abstract class BaseQueueHandler {
   constructor(public queueName, public rabbit: Rabbit, {
     retries = 3,
     retryDelay = 1000,
-    logger = getNewLogger(`[${queueName}]`),
+    logger = log4js.getLogger(`[rabbit-queue/${queueName}]`),
     logEnabled = true,
     scope = (<'SINGLETON' | 'PROTOTYPE'>BaseQueueHandler.SCOPES.singleton),
     createAndSubscribeToQueue = true
@@ -66,7 +66,7 @@ abstract class BaseQueueHandler {
     this.rabbit.createQueue(this.queueName, this.getQueueOptions(),
       (msg, ack) => {
         if (this.scope === BaseQueueHandler.SCOPES.singleton) {
-          this.tryHandle(0, msg, ack).catch(e => console.error(e));
+          this.tryHandle(0, msg, ack).catch(e => this.logger.error(e));
         } else {
           const instance = new (<any>this.constructor)(this.queueName, this.rabbit, {
             retries: this.retries,
@@ -76,7 +76,7 @@ abstract class BaseQueueHandler {
             scope: this.scope,
             createAndSubscribeToQueue: false
           });
-          instance.tryHandle(0, msg, ack).catch(e => console.error(e));
+          instance.tryHandle(0, msg, ack).catch(e => this.logger.error(e));
         }
       })
       .catch(error => this.logger.error(error));

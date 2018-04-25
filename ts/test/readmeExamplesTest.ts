@@ -4,21 +4,20 @@ import * as sinon from 'sinon';
 import Exchange from '../exchange';
 import Rabbit from '../rabbit';
 import BaseQueueHandler from '../baseQueueHandler';
-import * as log4js from 'log4js';
+import * as log4js from '@log4js-node/log4js-api';
 
-describe('Test Readme examples', function () {
-  afterEach(async function () {
+describe('Test Readme examples', function() {
+  afterEach(async function() {
     const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
     await rabbit.destroyQueue('queueName');
     await rabbit.destroyQueue('demoQueue');
     await rabbit.destroyQueue('demoQueue_dlq');
   });
 
-  it('test connecting to rabbitmq', function () {
+  it('test connecting to rabbitmq', function() {
     const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost', {
       prefetch: 1, //default prefetch from queue
       replyPattern: true, //if reply pattern is enabled an exclusive queue is created
-      logger: log4js.getLogger(`Rabbit-queue`),
       scheduledPublish: false,
       prefix: '', //prefix all queues with an application name
       socketOptions: {} // socketOptions will be passed as a second param to amqp.connect and from ther to the socket library (net or tls)
@@ -35,47 +34,57 @@ describe('Test Readme examples', function () {
     });
   });
 
-  it('test usage examples', async function () {
+  it('test usage examples', async function() {
     const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost', { scheduledPublish: true });
-    await rabbit.createQueue('queueName', { durable: false }, (msg, ack) => {
-      console.log(msg.content.toString());
-      ack(null, 'response');
-    }).then(() => console.log('queue created'));
+    await rabbit
+      .createQueue('queueName', { durable: false }, (msg, ack) => {
+        console.log(msg.content.toString());
+        ack(null, 'response');
+      })
+      .then(() => console.log('queue created'));
 
-    await rabbit.publish('queueName', { test: 'data' }, { correlationId: '1' })
+    await rabbit
+      .publish('queueName', { test: 'data' }, { correlationId: '1' })
       .then(() => console.log('message published'));
 
-    await rabbit.publishWithDelay('queueName', { test: 'data' }, { correlationId: '1', expiration: '10000' })
+    await rabbit
+      .publishWithDelay('queueName', { test: 'data' }, { correlationId: '1', expiration: '10000' })
       .then(() => console.log('message will be published'));
 
-    await rabbit.getReply('queueName', { test: 'data' }, { correlationId: '1' })
-      .then((reply) => console.log('received reply', reply));
+    await rabbit
+      .getReply('queueName', { test: 'data' }, { correlationId: '1' })
+      .then(reply => console.log('received reply', reply));
 
-    await rabbit.getReply('queueName', { test: 'data' }, { correlationId: '1' }, '', 100)
-      .then((reply) => console.log('received reply', reply))
-      .catch((error) => console.log('Timed out after 100ms'));
+    await rabbit
+      .getReply('queueName', { test: 'data' }, { correlationId: '1' }, '', 100)
+      .then(reply => console.log('received reply', reply))
+      .catch(error => console.log('Timed out after 100ms'));
 
     await rabbit.bindToTopic('queueName', 'routingKey');
-    await rabbit.getTopicReply('routingKey', { test: 'data' }, { correlationId: '1' }, '', 100)
-      .then((reply) => console.log('received reply', reply))
-      .catch((error) => console.log('Timed out after 100ms'));
+    await rabbit
+      .getTopicReply('routingKey', { test: 'data' }, { correlationId: '1' }, '', 100)
+      .then(reply => console.log('received reply', reply))
+      .catch(error => console.log('Timed out after 100ms'));
   });
 
-  it('test binding examples', async function () {
+  it('test binding examples', async function() {
     const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
-    await rabbit.createQueue('queueName', { durable: false }, (msg, ack) => {
-      console.log(msg.content.toString());
-      ack(null, 'response');
-    }).then(() => console.log('queue created'));
+    await rabbit
+      .createQueue('queueName', { durable: false }, (msg, ack) => {
+        console.log(msg.content.toString());
+        ack(null, 'response');
+      })
+      .then(() => console.log('queue created'));
 
     await rabbit.bindToExchange('queueName', 'amq.topic', 'routingKey');
     //shortcut await rabbit.bindToTopic('queueName', 'routingKey');
-    await rabbit.publishExchange('amq.topic', 'routingKey', { test: 'data' }, { correlationId: '1' })
+    await rabbit
+      .publishExchange('amq.topic', 'routingKey', { test: 'data' }, { correlationId: '1' })
       .then(() => console.log('message published'));
     //shortcut await rabbit.publishTopic( 'routingKey', { test: 'data' }, { correlationId: '1' });
   });
 
-  it('test advanced usage', async function () {
+  it('test advanced usage', async function() {
     const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
     class DemoHandler extends BaseQueueHandler {
       handle({ msg, event, correlationId, startTime }) {
@@ -88,19 +97,17 @@ describe('Test Readme examples', function () {
       }
     }
 
-    new DemoHandler('demoQueue', rabbit,
-      {
-        retries: 3,
-        retryDelay: 1000,
-        logEnabled: true,
-        logger: log4js.getLogger('[demoQueue]')
-      });
+    new DemoHandler('demoQueue', rabbit, {
+      retries: 3,
+      retryDelay: 1000,
+      logEnabled: true,
+      logger: log4js.getLogger('[demoQueue]')
+    });
 
     await rabbit.publish('demoQueue', { test: 'data' }, { correlationId: '4' });
   });
 
-
-  it('test advanced usage with getReply', async function () {
+  it('test advanced usage with getReply', async function() {
     const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
     class DemoHandler extends BaseQueueHandler {
       handle({ msg, event, correlationId, startTime }) {
@@ -114,21 +121,21 @@ describe('Test Readme examples', function () {
       }
     }
 
-    new DemoHandler('demoQueue', rabbit,
-      {
-        retries: 3,
-        retryDelay: 1000,
-        logEnabled: true,
-        logger: log4js.getLogger('[demoQueue]'),
-        scope: 'SINGLETON', //can also be 'PROTOTYPE' to create a new instance every time
-        createAndSubscribeToQueue: true // used internally no need to overwriteÏÏ
-      });
+    new DemoHandler('demoQueue', rabbit, {
+      retries: 3,
+      retryDelay: 1000,
+      logEnabled: true,
+      logger: log4js.getLogger('[demoQueue]'),
+      scope: 'SINGLETON', //can also be 'PROTOTYPE' to create a new instance every time
+      createAndSubscribeToQueue: true // used internally no need to overwriteÏÏ
+    });
 
-    await rabbit.getReply('demoQueue', { test: 'data' }, { correlationId: '5' })
-      .then((reply) => console.log('received reply', reply));
+    await rabbit
+      .getReply('demoQueue', { test: 'data' }, { correlationId: '5' })
+      .then(reply => console.log('received reply', reply));
   });
 
-  it('test advanced usage add to dlq', async function () {
+  it('test advanced usage add to dlq', async function() {
     const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
     class DemoHandler extends BaseQueueHandler {
       handle({ msg, event, correlationId, startTime }) {
@@ -140,16 +147,16 @@ describe('Test Readme examples', function () {
       }
     }
 
-    new DemoHandler('demoQueue', rabbit,
-      {
-        retries: 3,
-        retryDelay: 1,
-        logEnabled: true,
-        logger: log4js.getLogger('[demoQueue]'),
-        scope: 'SINGLETON'
-      });
+    new DemoHandler('demoQueue', rabbit, {
+      retries: 3,
+      retryDelay: 1,
+      logEnabled: true,
+      logger: log4js.getLogger('[demoQueue]'),
+      scope: 'SINGLETON'
+    });
 
-    await rabbit.getReply('demoQueue', { test: 'data' }, { correlationId: '5' })
+    await rabbit
+      .getReply('demoQueue', { test: 'data' }, { correlationId: '5' })
       .then(reply => console.log('received reply', reply))
       .catch(error => console.log('error', error)); //error will be 'test Error';
   });

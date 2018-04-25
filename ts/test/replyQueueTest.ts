@@ -6,16 +6,16 @@ import Rabbit from '../rabbit';
 import Queue from '../queue';
 const sandbox = sinon.sandbox.create();
 
-describe('Test ReplyQueue', function () {
-  before(function () {
+describe('Test ReplyQueue', function() {
+  before(function() {
     this.url = process.env.RABBIT_URL || 'amqp://localhost';
   });
 
-  afterEach(function () {
+  afterEach(function() {
     sandbox.restore();
   });
 
-  it('should createReplyQueue', async function () {
+  it('should createReplyQueue', async function() {
     const rabbit = new Rabbit(this.url);
     await rabbit.connected;
     const stub = sandbox.stub(rabbit.channel, 'consume');
@@ -25,7 +25,7 @@ describe('Test ReplyQueue', function () {
     stub.args[0][2].should.eql({ noAck: true });
   });
 
-  it('should call Handler on message', async function () {
+  it('should call Handler on message', async function() {
     const rabbit = new Rabbit(this.url);
     await rabbit.connected;
     const stub = sandbox.stub(rabbit.channel, 'consume');
@@ -37,7 +37,7 @@ describe('Test ReplyQueue', function () {
     stub.callArgWith(1, { properties: { correlationId: 1 }, content: '"test_body"' });
   });
 
-  it('should call Handler on message and fail', async function () {
+  it('should call Handler on message and fail', async function() {
     const rabbit = new Rabbit(this.url);
     await rabbit.connected;
     const stub = sandbox.stub(rabbit.channel, 'consume');
@@ -46,10 +46,13 @@ describe('Test ReplyQueue', function () {
       err.should.eql(new Error());
     };
     ReplyQueue.addHandler(1, handler);
-    stub.callArgWith(1, { properties: { correlationId: 1 }, content: new Buffer(JSON.stringify(Queue.ERROR_DURING_REPLY)) });
+    stub.callArgWith(1, {
+      properties: { correlationId: 1 },
+      content: new Buffer(JSON.stringify(Queue.ERROR_DURING_REPLY))
+    });
   });
 
-  it('should call Handler on message with null message and succeed', async function () {
+  it('should call Handler on message with null message and succeed', async function() {
     const rabbit = new Rabbit(this.url);
     await rabbit.connected;
     const stub = sandbox.stub(rabbit.channel, 'consume');

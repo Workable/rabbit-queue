@@ -1,12 +1,14 @@
 import * as amqp from 'amqplib';
 import { EventEmitter } from 'events';
-import { init, getLogger } from './logger';
 import { createReplyQueue } from './replyQueue';
 import { createDelayQueueReply, publishWithDelay } from './delayQueue';
 import { Channel } from './channel';
 import Queue from './queue';
 import Exchange from './exchange';
 import * as assert from 'assert';
+import * as log4js from '@log4js-node/log4js-api';
+
+const logger = log4js.getLogger('rabbit-queue');
 
 export default class Rabbit extends EventEmitter {
   static STOP_PROPAGATION = Queue.STOP_PROPAGATION;
@@ -21,8 +23,10 @@ export default class Rabbit extends EventEmitter {
   public scheduledPublish: boolean;
   public socketOptions;
 
-  constructor(public url: string,
-    { prefetch = 1, replyPattern = true, logger = null, prefix = '', scheduledPublish = false, socketOptions = {} } = {}) {
+  constructor(
+    public url: string,
+    { prefetch = 1, replyPattern = true, prefix = '', scheduledPublish = false, socketOptions = {} } = {}
+  ) {
     super();
     assert(url, 'Url is required!');
     this.prefetch = prefetch;
@@ -30,12 +34,13 @@ export default class Rabbit extends EventEmitter {
     this.prefix = prefix;
     this.scheduledPublish = scheduledPublish;
     this.socketOptions = socketOptions;
-    init(logger);
     this.reconnect();
   }
 
   private async connect() {
-    if (this.connecting) { return; }
+    if (this.connecting) {
+      return;
+    }
     this.connecting = true;
     let connection = await amqp.connect(this.url, this.socketOptions);
     let channel = await this.createChannel(connection);
@@ -86,14 +91,14 @@ export default class Rabbit extends EventEmitter {
   async createQueue(
     name: string,
     options: amqp.Options.AssertQueue & { prefix?: string } = {},
-    handler?: (msg: any, ack: (error?, reply?) => any) => any) {
-
+    handler?: (msg: any, ack: (error?, reply?) => any) => any
+  ) {
     name = this.updateName(name, options.prefix);
     await this.connected;
     const queue = new Queue(this.channel, name, options);
     this.queues[name] = queue;
     await queue.created;
-    getLogger().debug(`created queue ${name}`);
+    logger.debug(`created queue ${name}`);
     if (handler) {
       await queue.subscribe(handler);
     }
@@ -139,7 +144,13 @@ export default class Rabbit extends EventEmitter {
     return await Queue.getReply(obj, headers, this.channel, name, this.queues[name], timeout);
   }
 
-  async getTopicReply(topicName: string, content: any, headers: amqp.Options.Publish, prefix?: string, timeout?: number) {
+  async getTopicReply(
+    topicName: string,
+    content: any,
+    headers: amqp.Options.Publish,
+    prefix?: string,
+    timeout?: number
+  ) {
     topicName = this.updateName(topicName, prefix);
     await this.connected;
     return await Exchange.getReply(this.channel, 'amq.topic', topicName, content, headers, timeout);
@@ -182,5 +193,4 @@ export default class Rabbit extends EventEmitter {
   async close() {
     await this.connection.close();
   }
-
 }

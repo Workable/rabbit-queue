@@ -1,8 +1,9 @@
 import { Channel } from './channel';
 import * as amqp from 'amqplib';
-import { getLogger } from './logger';
 import Queue from './queue';
+import * as log4js from '@log4js-node/log4js-api';
 
+const logger = log4js.getLogger('rabbit-queue');
 let delayedQueue: { [key: string]: Queue } = {};
 let delayedQueueReply: Queue;
 let delayedQueueNameReply: string;
@@ -12,7 +13,7 @@ export async function createDelayQueueReply(channel: Channel, delayedQueueName: 
   delayedQueueReply = new Queue(channel, delayedQueueNameReply, {});
   await delayedQueueReply.created;
   delayedQueueReply.subscribe(onMessage(channel));
-};
+}
 
 export async function createDelayQueue(channel: Channel, delayedQueueName: string) {
   delayedQueue[delayedQueueName] = new Queue(channel, delayedQueueName, {
@@ -22,7 +23,13 @@ export async function createDelayQueue(channel: Channel, delayedQueueName: strin
   await delayedQueue[delayedQueueName].created;
 }
 
-export async function publishWithDelay(name, obj, headers: amqp.Options.Publish = {}, channel: Channel, queueName: string) {
+export async function publishWithDelay(
+  name,
+  obj,
+  headers: amqp.Options.Publish = {},
+  channel: Channel,
+  queueName: string
+) {
   const { expiration = '10000' } = headers || {};
   name = `${name}_${expiration}`;
 
@@ -30,7 +37,13 @@ export async function publishWithDelay(name, obj, headers: amqp.Options.Publish 
     await createDelayQueue(channel, name);
   }
   const timestamp = new Date().getTime();
-  Queue.publish({ queueName, obj, timestamp }, { expiration, ...headers }, channel, delayedQueue[name].name, delayedQueue[name]);
+  Queue.publish(
+    { queueName, obj, timestamp },
+    { expiration, ...headers },
+    channel,
+    delayedQueue[name].name,
+    delayedQueue[name]
+  );
 }
 
 function onMessage(channel: Channel) {
@@ -40,9 +53,9 @@ function onMessage(channel: Channel) {
     const { queueName, obj, timestamp } = JSON.parse(body);
     const { properties } = msg;
     const { ['x-death']: xDeath, ...rest } = properties.headers;
-    getLogger().debug(`[${id}] -> Received expired msg after ${xDeath[0]['original-expiration']} ms. \
+    logger.debug(`[${id}] -> Received expired msg after ${xDeath[0]['original-expiration']} ms. \
 Actually took ${new Date().getTime() - timestamp} ms.`);
     await Queue.publish(obj, { ...properties, headers: rest }, channel, queueName);
     ack();
   };
-};
+}

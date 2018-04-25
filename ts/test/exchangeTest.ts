@@ -6,22 +6,22 @@ import Rabbit from '../rabbit';
 import Queue from '../queue';
 const sandbox = sinon.sandbox.create();
 
-describe('Test Exchange', function () {
+describe('Test Exchange', function() {
   let rabbit: Rabbit;
 
-  before(async function () {
+  before(async function() {
     this.name = 'test.queue';
     this.url = process.env.RABBIT_URL || 'amqp://localhost';
-    rabbit = new Rabbit(this.url, { logger: (<any>global).logger });
+    rabbit = new Rabbit(this.url, {});
     await rabbit.connected;
   });
 
-  afterEach(async function () {
+  afterEach(async function() {
     await rabbit.destroyQueue(this.name);
     sandbox.restore();
   });
 
-  it('should publish to exchange', async function () {
+  it('should publish to exchange', async function() {
     const stub = sandbox.stub(rabbit.channel, 'publish');
     stub.callsArgWith(4, null, 'ok');
     const content = { content: true };
@@ -31,7 +31,7 @@ describe('Test Exchange', function () {
     stub.args[0].slice(0, 4).should.eql(['exchange', 'routingKey', new Buffer(JSON.stringify(content)), headers]);
   });
 
-  it('should publish to topic with getReply', async function () {
+  it('should publish to topic with getReply', async function() {
     const spy = sandbox.spy(rabbit.channel, 'publish');
     const content = { content: true };
     const headers = { headers: { test: 1 }, correlationId: '1', persistent: false, replyTo: rabbit.channel.replyName };
@@ -44,7 +44,7 @@ describe('Test Exchange', function () {
     spy.args[0].slice(0, 4).should.eql(['amq.topic', 'binding', new Buffer(JSON.stringify(content)), headers]);
   });
 
-  it('should publish to topic with getReply and timeout and fail', async function () {
+  it('should publish to topic with getReply and timeout and fail', async function() {
     const spy = sandbox.spy(rabbit.channel, 'publish');
     const content = { content: true };
     const headers = { headers: { test: 1 }, correlationId: '2', persistent: false, replyTo: rabbit.channel.replyName };
@@ -62,7 +62,7 @@ describe('Test Exchange', function () {
     spy.args[0].slice(0, 4).should.eql(['amq.topic', 'binding', new Buffer(JSON.stringify(content)), headers]);
   });
 
-  it('should publish to topic with getReply and fail', async function () {
+  it('should publish to topic with getReply and fail', async function() {
     const spy = sandbox.spy(rabbit.channel, 'publish');
     const content = { content: true };
     const headers = { headers: { test: 1 }, correlationId: '3', persistent: false, replyTo: rabbit.channel.replyName };

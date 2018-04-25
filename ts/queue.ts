@@ -1,16 +1,19 @@
 import * as uuid from 'uuid';
-import { getLogger } from './logger';
 import * as amqp from 'amqplib';
 import { Channel } from './channel';
 import { getReply } from './replyQueue';
 import raceUntil from 'race-until';
+import * as log4js from '@log4js-node/log4js-api';
+
+const logger = log4js.getLogger('rabbit-queue');
 
 export default class Queue {
   static STOP_PROPAGATION = { stopPropagation: true };
   static ERROR_DURING_REPLY = { error: true, error_code: 999 };
 
   defaultOptions = {
-    durable: true, noAck: false
+    durable: true,
+    noAck: false
   };
   public options: amqp.Options.AssertQueue & amqp.Options.Consume;
   public created: Promise<any>;
@@ -24,10 +27,25 @@ export default class Queue {
 
   async create() {
     const {
-      exclusive, priority, durable, autoDelete, messageTtl, expires, deadLetterExchange, deadLetterRoutingKey, maxLength
+      exclusive,
+      priority,
+      durable,
+      autoDelete,
+      messageTtl,
+      expires,
+      deadLetterExchange,
+      deadLetterRoutingKey,
+      maxLength
     } = this.options;
     let queueOptions: amqp.Options.AssertQueue = {
-      exclusive, durable, autoDelete, messageTtl, expires, deadLetterExchange, deadLetterRoutingKey, maxLength
+      exclusive,
+      durable,
+      autoDelete,
+      messageTtl,
+      expires,
+      deadLetterExchange,
+      deadLetterRoutingKey,
+      maxLength
     };
     if (priority !== undefined) {
       queueOptions.arguments = { 'x-max-priority': priority };
@@ -63,7 +81,9 @@ export default class Queue {
         this.channel.ack(msg);
       }
     };
-    if (!msg) { return; }
+    if (!msg) {
+      return;
+    }
     const hasReply = !!msg.properties.replyTo;
     this.handler(msg, (error, reply) => {
       if (hasReply && reply !== Queue.STOP_PROPAGATION) {
@@ -71,9 +91,14 @@ export default class Queue {
           reply = Object.assign({}, Queue.ERROR_DURING_REPLY, { error_message: error });
         }
         var replyBuffer = Buffer.from(JSON.stringify(reply || ''));
-        this.channel.sendToQueue(msg.properties.replyTo, replyBuffer, {
-          correlationId: msg.properties.correlationId
-        }, ack);
+        this.channel.sendToQueue(
+          msg.properties.replyTo,
+          replyBuffer,
+          {
+            correlationId: msg.properties.correlationId
+          },
+          ack
+        );
       } else {
         ack();
       }
@@ -87,22 +112,32 @@ export default class Queue {
     return new Promise((resolve, reject) => {
       var msg = JSON.stringify(obj);
       var correlationId = headers.correlationId || uuid.v4();
-      headers = Object.assign({
-        persistent: true,
-        correlationId
-      }, headers);
+      headers = Object.assign(
+        {
+          persistent: true,
+          correlationId
+        },
+        headers
+      );
       const bufferContent = Buffer.from(msg);
-      getLogger().debug(`[${correlationId}] <- Publishing to queue ${name} ${bufferContent.byteLength} bytes`);
-      channel.sendToQueue(name, bufferContent, headers, (err, ok) => err ? reject(err) : resolve(ok));
+      logger.info(`[${correlationId}] <- Publishing to queue ${name} ${bufferContent.byteLength} bytes`);
+      channel.sendToQueue(name, bufferContent, headers, (err, ok) => (err ? reject(err) : resolve(ok)));
     });
   }
 
-  static async getReply(obj, headers: amqp.Options.Publish, channel: Channel, name: string, queue?: Queue, timeout?: number) {
+  static async getReply(
+    obj,
+    headers: amqp.Options.Publish,
+    channel: Channel,
+    name: string,
+    queue?: Queue,
+    timeout?: number
+  ) {
     if (queue) {
       await queue.created;
     }
     const reply = getReply(obj, headers, channel, (bufferContent, headers, correlationId, cb) => {
-      getLogger().debug(`[${correlationId}] <- Publishing to reply queue ${name} ${bufferContent.byteLength} bytes`);
+      logger.info(`[${correlationId}] <- Publishing to reply queue ${name} ${bufferContent.byteLength} bytes`);
       channel.sendToQueue(name, bufferContent, headers, cb);
     });
     if (timeout) {
@@ -117,7 +152,7 @@ export default class Queue {
       await queue.created;
     }
     await channel.bindQueue(name, exchange, routingKey);
-    getLogger().debug(`created binding ${exchange} ${name} <-- ${routingKey}`);
+    logger.debug(`created binding ${exchange} ${name} <-- ${routingKey}`);
   }
 
   static async unbindFromExchange(exchange, routingKey, channel: Channel, name: string, queue?: Queue) {
@@ -125,6 +160,6 @@ export default class Queue {
       await queue.created;
     }
     await channel.unbindQueue(name, exchange, routingKey);
-    getLogger().debug(`deleted binding ${exchange} ${name} <-X- ${routingKey}`);
+    logger.debug(`deleted binding ${exchange} ${name} <-X- ${routingKey}`);
   }
 }
