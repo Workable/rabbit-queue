@@ -31,6 +31,7 @@ const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost', {
 
 rabbit.on('connected', () => {
   //create queues, add halders etc.
+  //this will be called on every reconnection too
 });
 
 rabbit.on('disconnected', (err = new Error('Rabbitmq Disconnected')) => {
@@ -116,7 +117,6 @@ new DemoHandler('demoQueue', rabbit, {
   retries: 3,
   retryDelay: 1000,
   logEnabled: true, //log queue processing time
-  logger: log4js.getLogger('[demoQueue]'), // logging in debug, warn and error.
   scope: 'SINGLETON', //can also be 'PROTOTYPE' to create a new instance every time
   createAndSubscribeToQueue: true // used internally no need to overwriteÏÏ
 });
@@ -144,7 +144,6 @@ new DemoHandler('demoQueue', rabbit, {
   retries: 3,
   retryDelay: 1000,
   logEnabled: true,
-  logger: log4js.getLogger('[demoQueue]'),
   scope: 'SINGLETON'
 });
 
@@ -171,8 +170,7 @@ rabbit
     {
       retries: 3,
       retryDelay: 1,
-      logEnabled: true,
-      logger: log4js.getLogger('[demoQueue]')
+      logEnabled: true
     });
 
   rabbit.getReply('demoQueue', { test: 'data' }, { correlationId: '5' })
@@ -180,11 +178,37 @@ rabbit
     .catch(error => console.log('error', error)); //error will be 'test Error';
 ```
 
+### Logging
+
+
+Rabbit-queue uses log4js-api so you need to install log4js for logging to work.
+
+Creations of queues, bindings are logged in debug level.
+Message enqueues, dequeeus are logged in info level.
+Errors in BaseQueueHandler are logged in error level. (You can add your own error logging logic in afterDlq method.)
+
+
+Using log4js v2 and custom appenders like [log4js_honeybadger_appender](https://www.npmjs.com/package/log4js_honeybadger_appender) you can directly log rabbit-queue errors directly to honeybadger.
+
+log4js configuration example
+```javascript
+log4js.configure({
+  appenders: {
+    out: { type: 'stdout', layout: { type: 'basic' } }
+  },
+  honeybadger: { type: 'log4js_honeybadger_appender' },
+  categories: {
+    default: { appenders: ['out'], level: 'info' },
+    'rabbit-queue': { appenders: ['out', 'honeybadger'], level: 'debug' }
+  }
+});
+```
+
 ### Changelog
 
 ### v2.x.x to v3.x.x
 
-Log4js was removed. You can no longer pass your own logger in Rabbit constructor. Instead log4js-api is used and your log4js configuration is used by default if present. Logger name is rabbit-queue. BaseQueueHandler logger can still be overwritten
+Log4js was removed. You can no longer pass your own logger in Rabbit constructor. Instead log4js-api is used and your log4js configuration is used by default if present. Logger name is rabbit-queue.
 
 #### v1.x.x to V2.x.x
 

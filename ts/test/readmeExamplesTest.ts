@@ -100,8 +100,7 @@ describe('Test Readme examples', function() {
     new DemoHandler('demoQueue', rabbit, {
       retries: 3,
       retryDelay: 1000,
-      logEnabled: true,
-      logger: log4js.getLogger('[demoQueue]')
+      logEnabled: true
     });
 
     await rabbit.publish('demoQueue', { test: 'data' }, { correlationId: '4' });
@@ -125,7 +124,6 @@ describe('Test Readme examples', function() {
       retries: 3,
       retryDelay: 1000,
       logEnabled: true,
-      logger: log4js.getLogger('[demoQueue]'),
       scope: 'SINGLETON', //can also be 'PROTOTYPE' to create a new instance every time
       createAndSubscribeToQueue: true // used internally no need to overwriteÏÏ
     });
@@ -151,7 +149,6 @@ describe('Test Readme examples', function() {
       retries: 3,
       retryDelay: 1,
       logEnabled: true,
-      logger: log4js.getLogger('[demoQueue]'),
       scope: 'SINGLETON'
     });
 

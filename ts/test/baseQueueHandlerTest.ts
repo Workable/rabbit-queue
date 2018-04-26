@@ -33,7 +33,7 @@ describe('Test baseQueueHandler', function() {
   });
 
   it('should handle message', async function() {
-    const handler = new DemoHandler(this.name, rabbit, { logger: (<any>global).logger });
+    const handler = new DemoHandler(this.name, rabbit, {});
     const handle = (handler.handle = sandbox.stub());
     await rabbit.publish(this.name, { test: 'data' }, { correlationId: '3' });
     await new Promise(resolve => setTimeout(resolve, 10));
@@ -43,7 +43,7 @@ describe('Test baseQueueHandler', function() {
   });
 
   it('should mess context', async function() {
-    const handler = new DemoHandler(this.name, rabbit, { logger: (<any>global).logger });
+    const handler = new DemoHandler(this.name, rabbit, {});
     const handle = (handler.handle = function({ event }) {
       this.context = event.test;
     });
@@ -71,8 +71,7 @@ describe('Test baseQueueHandler', function() {
     sandbox.useFakeTimers();
     const handler = new DemoHandler(this.name, rabbit, {
       retries: 2,
-      retryDelay: 100,
-      logger: (<any>global).logger
+      retryDelay: 100
     });
     const handle = (handler.handle = sandbox.spy(() => {
       throw new Error('test error');
@@ -93,8 +92,7 @@ describe('Test baseQueueHandler', function() {
   it('should add to dlq after x retries and get error response', async function() {
     const handler = new DemoHandler(this.name, rabbit, {
       retries: 0,
-      retryDelay: 10,
-      logger: (<any>global).logger
+      retryDelay: 10
     });
     const handle = (handler.handle = sandbox.spy(() => {
       throw new Error('test error');
@@ -112,8 +110,7 @@ describe('Test baseQueueHandler', function() {
   it('should add to dlq after x retries and get no response because afterDlq returns STOP_PROPAGATION', async function() {
     const handler = new DemoHandler(this.name, rabbit, {
       retries: 0,
-      retryDelay: 10,
-      logger: (<any>global).logger
+      retryDelay: 10
     });
     const handle = (handler.handle = sandbox.spy(() => {
       throw new Error('test error');
@@ -159,8 +156,7 @@ describe('Test baseQueueHandler', function() {
     sandbox.useFakeTimers();
     const handler = new DemoHandler(this.name, rabbit, {
       retries: 2,
-      retryDelay: 100,
-      logger: (<any>global).logger
+      retryDelay: 100
     });
     handler.handle = sandbox.spy(() => {
       throw new Error('test error');
@@ -188,8 +184,7 @@ describe('Test baseQueueHandler', function() {
   it('should add to dlq after x retries and get error response even if afterDlq throws error', async function() {
     const handler = new DemoHandler(this.name, rabbit, {
       retries: 0,
-      retryDelay: 10,
-      logger: (<any>global).logger
+      retryDelay: 10
     });
     const handle = (handler.handle = sandbox.spy(() => {
       throw new Error('test error');
