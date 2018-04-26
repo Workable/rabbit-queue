@@ -16,7 +16,7 @@ export default {
       const bufferContent = new Buffer(JSON.stringify(content));
       const exchangeHeaders: amqp.Options.Publish = Object.assign({}, this.defaultHeaders, headers, extraHeaders);
       logger.info(
-        `[${exchangeHeaders.correlationId}] <- Publishing to ${exchange} ${routingKey} ${
+        `[${exchangeHeaders.correlationId}] -> Publishing to ${exchange} ${routingKey} ${
           bufferContent.byteLength
         } bytes`
       );
@@ -36,7 +36,7 @@ export default {
   ) {
     const reply = getReply(content, headers, channel, (bufferContent, headers, correlationId, cb) => {
       logger.info(
-        `[${correlationId}] <- Publishing to reply exchange ${exchange}-${routingKey} ${bufferContent.byteLength} bytes`
+        `[${correlationId}] -> Publishing to reply exchange ${exchange}-${routingKey} ${bufferContent.byteLength} bytes`
       );
       channel.publish(exchange, routingKey, bufferContent, headers, cb);
     });

@@ -120,7 +120,7 @@ export default class Queue {
         headers
       );
       const bufferContent = Buffer.from(msg);
-      logger.info(`[${correlationId}] <- Publishing to queue ${name} ${bufferContent.byteLength} bytes`);
+      logger.info(`[${correlationId}] -> Publishing to queue ${name} ${bufferContent.byteLength} bytes`);
       channel.sendToQueue(name, bufferContent, headers, (err, ok) => (err ? reject(err) : resolve(ok)));
     });
   }
@@ -137,7 +137,7 @@ export default class Queue {
       await queue.created;
     }
     const reply = getReply(obj, headers, channel, (bufferContent, headers, correlationId, cb) => {
-      logger.info(`[${correlationId}] <- Publishing to reply queue ${name} ${bufferContent.byteLength} bytes`);
+      logger.info(`[${correlationId}] -> Publishing to reply queue ${name} ${bufferContent.byteLength} bytes`);
       channel.sendToQueue(name, bufferContent, headers, cb);
     });
     if (timeout) {
@@ -152,7 +152,7 @@ export default class Queue {
       await queue.created;
     }
     await channel.bindQueue(name, exchange, routingKey);
-    logger.debug(`created binding ${exchange} ${name} <-- ${routingKey}`);
+    logger.debug(`created binding ${exchange} routingkey:${routingKey} --> queue:${name}`);
   }
 
   static async unbindFromExchange(exchange, routingKey, channel: Channel, name: string, queue?: Queue) {
@@ -160,6 +160,6 @@ export default class Queue {
       await queue.created;
     }
     await channel.unbindQueue(name, exchange, routingKey);
-    logger.debug(`deleted binding ${exchange} ${name} <-X- ${routingKey}`);
+    logger.debug(`deleted binding${exchange} routingkey:${routingKey} -X-> queue:${name}}`);
   }
 }

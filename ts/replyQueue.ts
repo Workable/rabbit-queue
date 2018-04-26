@@ -48,7 +48,7 @@ function onReply(msg: amqp.Message) {
   delete replyHandlers[id];
 
   const body = msg.content.toString();
-  logger.info(`[${id}] -> Returning reply ${msg.content.byteLength} bytes`);
+  logger.info(`[${id}] <- Returning reply ${msg.content.byteLength} bytes`);
   const obj = JSON.parse(body);
   if (obj && obj.error && obj.error_code === Queue.ERROR_DURING_REPLY.error_code) {
     replyHandler(new Error(obj.error_message), null);
