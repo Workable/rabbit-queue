@@ -20,7 +20,7 @@ export function addHandler(correlationId, handler: (err: Error, body: string) =>
   replyHandlers[correlationId] = handler;
 }
 
-export function getReply(content: any, headers: amqp.Options.Publish, channel: Channel, cb: Function) {
+export function getReply(content: any, headers: amqp.Options.Publish = {}, channel: Channel, cb: Function) {
   return new Promise((resolve, reject) => {
     var msg = JSON.stringify(content);
     var correlationId = headers.correlationId || uuid.v4();
