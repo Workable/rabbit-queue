@@ -20,7 +20,7 @@ abstract class BaseQueueHandler {
   constructor(public queueName, public rabbit: Rabbit, {
     retries = 3,
     retryDelay = 1000,
-    logger = log4js.getLogger(`[rabbit-queue/${queueName}]`),
+    logger = log4js.getLogger(`rabbit-queue.${queueName}`),
     logEnabled = true,
     scope = (<'SINGLETON' | 'PROTOTYPE'>BaseQueueHandler.SCOPES.singleton),
     createAndSubscribeToQueue = true
