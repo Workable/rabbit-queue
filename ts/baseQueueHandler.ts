@@ -142,7 +142,9 @@ abstract class BaseQueueHandler {
 
   abstract async handle(data: { msg: amqp.Message; event: any; correlationId: string; startTime: number });
 
-  abstract async afterDlq(data: { msg: amqp.Message; event: any });
+  afterDlq(data: { msg: amqp.Message; event: any }) {
+    this.logger.info(`[${this.getCorrelationId(data.msg)}] Added to dlq`);
+  }
 
   async addToDLQ(retries, msg: amqp.Message, ack) {
     try {
