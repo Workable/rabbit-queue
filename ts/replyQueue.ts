@@ -32,7 +32,7 @@ export function getReply(content: any, headers: amqp.Options.Publish = {}, chann
       },
       headers
     );
-    const bufferContent = new Buffer(msg);
+    const bufferContent = Buffer.from(msg);
     addHandler(correlationId, (err, body) => (err ? reject(err) : resolve(body)));
     cb(bufferContent, headers, correlationId, (err, ok) => (err ? reject(err) : {}));
   });
