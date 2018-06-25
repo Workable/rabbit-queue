@@ -36,8 +36,6 @@
     "log4js": "*"
   },
   "devDependencies": {
-    "source-map-support": "^0.4.5",
-    "@types/uuid": "2.0.29",
     "@types/amqplib": "0.3.29",
     "@types/mocha": "2.2.32",
     "@types/node": "6.0.40",
@@ -45,11 +43,13 @@
     "@types/should": "8.1.30",
     "@types/sinon": "1.16.30",
     "@types/source-map-support": "0.2.28",
-    "istanbul": "0.4.4",
-    "mocha": "3.0.2",
-    "remap-istanbul": "0.6.4",
+    "@types/uuid": "2.0.29",
+    "istanbul": "^0.4.5",
+    "mocha": "^5.2.0",
+    "remap-istanbul": "^0.11.1",
     "should": "10.0.0",
     "sinon": "1.17.5",
+    "source-map-support": "^0.4.5",
     "tslint": "4.1.0",
     "typescript": "2.8.3"
   }
