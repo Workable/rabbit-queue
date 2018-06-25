@@ -2,35 +2,16 @@
 # yarn lockfile v1
 
 
+"@log4js-node/log4js-api@^1.0.0":
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/@log4js-node/log4js-api/-/log4js-api-1.0.0.tgz#a97d9838a1da83820b05f278361d879363de5adb"
+
 "@types/amqplib@0.3.29":
   version "0.3.29"
   resolved "https://registry.yarnpkg.com/@types/amqplib/-/amqplib-0.3.29.tgz#cdc233dfc607921b78f0a23e72d34989eac922be"
   dependencies:
     "@types/node" "*"
     "@types/when" "*"
-
-"@types/express-serve-static-core@*":
-  version "4.0.39"
-  resolved "https://registry.yarnpkg.com/@types/express-serve-static-core/-/express-serve-static-core-4.0.39.tgz#45157f96480d46f254648f45b2c6d70bd9fc9f54"
-  dependencies:
-    "@types/node" "*"
-
-"@types/express@*":
-  version "4.0.34"
-  resolved "https://registry.yarnpkg.com/@types/express/-/express-4.0.34.tgz#cdc0afd69d70d2295b81b3aa47f26f672afcde1c"
-  dependencies:
-    "@types/express-serve-static-core" "*"
-    "@types/serve-static" "*"
-
-"@types/log4js@0.0.32":
-  version "0.0.32"
-  resolved "https://registry.yarnpkg.com/@types/log4js/-/log4js-0.0.32.tgz#c15621cfa96f92ec6b0cfb49096bdd23cd893c7c"
-  dependencies:
-    "@types/express" "*"
-
-"@types/mime@*":
-  version "0.0.29"
-  resolved "https://registry.yarnpkg.com/@types/mime/-/mime-0.0.29.tgz#fbcfd330573b912ef59eeee14602bface630754b"
 
 "@types/mocha@2.2.32":
   version "2.2.32"
@@ -46,13 +27,6 @@
   version "6.0.40"
   resolved "https://registry.yarnpkg.com/@types/node/-/node-6.0.40.tgz#aca7af9e0010e43f35ec20b3764d44e3d81bc4df"
 
-"@types/serve-static@*":
-  version "1.7.31"
-  resolved "https://registry.yarnpkg.com/@types/serve-static/-/serve-static-1.7.31.tgz#15456de8d98d6b4cff31be6c6af7492ae63f521a"
-  dependencies:
-    "@types/express-serve-static-core" "*"
-    "@types/mime" "*"
-
 "@types/should@8.1.30":
   version "8.1.30"
   resolved "https://registry.yarnpkg.com/@types/should/-/should-8.1.30.tgz#e6b4f3ca4fb0799f6ce3303f3a8c003df6585aa3"
@@ -66,18 +40,6 @@
   resolved "https://registry.yarnpkg.com/@types/source-map-support/-/source-map-support-0.2.28.tgz#ce6497dfa9c9fbd21a753955b4a51d8993d759dd"
   dependencies:
     "@types/node" "*"
-
-"@types/superagent@*":
-  version "2.0.36"
-  resolved "https://registry.yarnpkg.com/@types/superagent/-/superagent-2.0.36.tgz#e8eec10771d9dbc0f7ec47b8f9993476e4a501c1"
-  dependencies:
-    "@types/node" "*"
-
-"@types/supertest@1.1.31":
-  version "1.1.31"
-  resolved "https://registry.yarnpkg.com/@types/supertest/-/supertest-1.1.31.tgz#5614c17cb7f7396ef90243c1d55f7df545a36154"
-  dependencies:
-    "@types/superagent" "*"
 
 "@types/uuid@2.0.29":
   version "2.0.29"
@@ -417,10 +379,6 @@ damerau-levenshtein@^1.0.0:
   version "1.0.3"
   resolved "https://registry.yarnpkg.com/damerau-levenshtein/-/damerau-levenshtein-1.0.3.tgz#ae4f4ce0b62acae10ff63a01bb08f652f5213af2"
 
-date-format@^0.0.0:
-  version "0.0.0"
-  resolved "https://registry.yarnpkg.com/date-format/-/date-format-0.0.0.tgz#09206863ab070eb459acea5542cbd856b11966b3"
-
 dateformat@^1.0.11:
   version "1.0.12"
   resolved "https://registry.yarnpkg.com/dateformat/-/dateformat-1.0.12.tgz#9f124b67594c937ff706932e4a642cca8dbbfee9"
@@ -428,15 +386,11 @@ dateformat@^1.0.11:
     get-stdin "^4.0.1"
     meow "^3.3.0"
 
-debug@2.2.0, debug@^2.1.1, debug@^2.2.0:
+debug@2.2.0, debug@^2.1.1:
   version "2.2.0"
   resolved "https://registry.yarnpkg.com/debug/-/debug-2.2.0.tgz#f87057e995b1a1f6ae6a4960664137bc56f039da"
   dependencies:
     ms "0.7.1"
-
-debug@^0.7.2:
-  version "0.7.4"
-  resolved "https://registry.yarnpkg.com/debug/-/debug-0.7.4.tgz#06e1ea8082c2cb14e39806e22e2f6f757f92af39"
 
 decamelize@^1.0.0, decamelize@^1.1.2:
   version "1.2.0"
@@ -1270,14 +1224,6 @@ lodash@^4.0.0, lodash@^4.3.0:
   version "4.17.2"
   resolved "https://registry.yarnpkg.com/lodash/-/lodash-4.17.2.tgz#34a3055babe04ce42467b607d700072c7ff6bf42"
 
-log4js@^1.1.1:
-  version "1.1.1"
-  resolved "https://registry.yarnpkg.com/log4js/-/log4js-1.1.1.tgz#c21d29c7604089e4f255833e7f94b3461de1ff43"
-  dependencies:
-    debug "^2.2.0"
-    semver "^5.3.0"
-    streamroller "^0.4.0"
-
 lolex@1.3.2:
   version "1.3.2"
   resolved "https://registry.yarnpkg.com/lolex/-/lolex-1.3.2.tgz#7c3da62ffcb30f0f5a80a2566ca24e45d8a01f31"
@@ -1561,7 +1507,7 @@ read-pkg@^1.0.0:
     normalize-package-data "^2.3.2"
     path-type "^1.0.0"
 
-"readable-stream@1.x >=1.1.9", readable-stream@^1.1.7, readable-stream@~1.1.9:
+"readable-stream@1.x >=1.1.9", readable-stream@~1.1.9:
   version "1.1.14"
   resolved "https://registry.yarnpkg.com/readable-stream/-/readable-stream-1.1.14.tgz#7cf4c54ef648e3813084c636dd2079e166c081d9"
   dependencies:
@@ -1702,7 +1648,7 @@ semver-diff@^2.0.0:
   dependencies:
     semver "^5.0.3"
 
-"semver@2 || 3 || 4 || 5", semver@^5.0.3, semver@^5.1.0, semver@^5.3.0:
+"semver@2 || 3 || 4 || 5", semver@^5.0.3, semver@^5.1.0:
   version "5.3.0"
   resolved "https://registry.yarnpkg.com/semver/-/semver-5.3.0.tgz#9b2ce5d3de02d17c6012ad326aa6b4d0cf54f94f"
 
@@ -1798,15 +1744,6 @@ spdx-license-ids@^1.0.2:
 sprintf-js@^1.0.3, sprintf-js@~1.0.2:
   version "1.0.3"
   resolved "https://registry.yarnpkg.com/sprintf-js/-/sprintf-js-1.0.3.tgz#04e6926f662895354f3dd015203633b857297e2c"
-
-streamroller@^0.4.0:
-  version "0.4.0"
-  resolved "https://registry.yarnpkg.com/streamroller/-/streamroller-0.4.0.tgz#a273f1f91994549a2ddd112ccaa2d1dd23cb758c"
-  dependencies:
-    date-format "^0.0.0"
-    debug "^0.7.2"
-    mkdirp "^0.5.1"
-    readable-stream "^1.1.7"
 
 string-width@^1.0.1:
   version "1.0.2"
@@ -1929,9 +1866,9 @@ typedarray@^0.0.6:
   version "0.0.6"
   resolved "https://registry.yarnpkg.com/typedarray/-/typedarray-0.0.6.tgz#867ac74e3864187b1d3d47d996a78ec5c8830777"
 
-typescript@2.1.4:
-  version "2.1.4"
-  resolved "https://registry.yarnpkg.com/typescript/-/typescript-2.1.4.tgz#b53b69fb841126acb1dd4b397d21daba87572251"
+typescript@2.8.3:
+  version "2.8.3"
+  resolved "https://registry.yarnpkg.com/typescript/-/typescript-2.8.3.tgz#5d817f9b6f31bb871835f4edf0089f21abe6c170"
 
 uglify-js@^2.6:
   version "2.7.5"

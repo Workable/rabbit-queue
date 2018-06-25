@@ -49,8 +49,7 @@ export default class Rabbit extends EventEmitter {
 
   async reconnect() {
     this.connected = this.connect();
-    this.connected.catch(error => this.emitDisconnected(error));
-    await this.connected;
+    await this.connected.catch(error => this.emitDisconnected(error));
   }
 
   private emitDisconnected(error) {
