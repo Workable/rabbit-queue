@@ -7,6 +7,8 @@ import Queue from '../queue';
 const sandbox = sinon.sandbox.create();
 
 describe('Test ReplyQueue', function() {
+  let rabbit: Rabbit;
+
   before(function() {
     this.url = process.env.RABBIT_URL || 'amqp://localhost';
   });
@@ -15,8 +17,12 @@ describe('Test ReplyQueue', function() {
     sandbox.restore();
   });
 
+  afterEach(async function() {
+    await rabbit.close();
+  });
+
   it('should createReplyQueue', async function() {
-    const rabbit = new Rabbit(this.url);
+    rabbit = new Rabbit(this.url);
     await rabbit.connected;
     const stub = sandbox.stub(rabbit.channel, 'consume');
     await ReplyQueue.createReplyQueue(rabbit.channel);
@@ -26,7 +32,7 @@ describe('Test ReplyQueue', function() {
   });
 
   it('should call Handler on message', async function() {
-    const rabbit = new Rabbit(this.url);
+    rabbit = new Rabbit(this.url);
     await rabbit.connected;
     const stub = sandbox.stub(rabbit.channel, 'consume');
     await ReplyQueue.createReplyQueue(rabbit.channel);
@@ -38,7 +44,7 @@ describe('Test ReplyQueue', function() {
   });
 
   it('should call Handler on message and fail', async function() {
-    const rabbit = new Rabbit(this.url);
+    rabbit = new Rabbit(this.url);
     await rabbit.connected;
     const stub = sandbox.stub(rabbit.channel, 'consume');
     await ReplyQueue.createReplyQueue(rabbit.channel);
@@ -53,7 +59,7 @@ describe('Test ReplyQueue', function() {
   });
 
   it('should call Handler on message with null message and succeed', async function() {
-    const rabbit = new Rabbit(this.url);
+    rabbit = new Rabbit(this.url);
     await rabbit.connected;
     const stub = sandbox.stub(rabbit.channel, 'consume');
     await ReplyQueue.createReplyQueue(rabbit.channel);

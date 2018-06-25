@@ -24,6 +24,10 @@ describe('Test DelayQueue', function() {
     await rabbit.destroyQueue('delay_reply');
   });
 
+  afterEach(async function() {
+    await rabbit.close();
+  });
+
   it('should createDelayQueue', async function() {
     await DelayQueue.createDelayQueueReply(rabbit.channel, 'delay');
     const queueInstance = sinon.createStubInstance(Queue.default);

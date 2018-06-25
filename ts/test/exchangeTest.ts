@@ -21,6 +21,10 @@ describe('Test Exchange', function() {
     sandbox.restore();
   });
 
+  after(async function() {
+    await rabbit.close();
+  });
+
   it('should publish to exchange', async function() {
     const stub = sandbox.stub(rabbit.channel, 'publish');
     stub.callsArgWith(4, null, 'ok');

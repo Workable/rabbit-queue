@@ -7,15 +7,20 @@ import BaseQueueHandler from '../baseQueueHandler';
 import * as log4js from '@log4js-node/log4js-api';
 
 describe('Test Readme examples', function() {
+  let rabbit: Rabbit;
+
   afterEach(async function() {
-    const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
     await rabbit.destroyQueue('queueName');
     await rabbit.destroyQueue('demoQueue');
     await rabbit.destroyQueue('demoQueue_dlq');
   });
 
+  afterEach(async function() {
+    await rabbit.close();
+  });
+
   it('test connecting to rabbitmq', function() {
-    const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost', {
+    rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost', {
       prefetch: 1, //default prefetch from queue
       replyPattern: true, //if reply pattern is enabled an exclusive queue is created
       scheduledPublish: false,
@@ -30,12 +35,12 @@ describe('Test Readme examples', function() {
     rabbit.on('disconnected', (err = new Error('Rabbitmq Disconnected')) => {
       //handle disconnections and try to reconnect
       console.error(err);
-      setTimeout(() => rabbit.reconnect(), 100);
+      // setTimeout(() => rabbit.reconnect(), 100);
     });
   });
 
   it('test usage examples', async function() {
-    const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost', { scheduledPublish: true });
+    rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost', { scheduledPublish: true });
     await rabbit
       .createQueue('queueName', { durable: false }, (msg, ack) => {
         console.log(msg.content.toString());
@@ -68,7 +73,7 @@ describe('Test Readme examples', function() {
   });
 
   it('test binding examples', async function() {
-    const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
+    rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
     await rabbit
       .createQueue('queueName', { durable: false }, (msg, ack) => {
         console.log(msg.content.toString());
@@ -85,7 +90,7 @@ describe('Test Readme examples', function() {
   });
 
   it('test advanced usage', async function() {
-    const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
+    rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
     class DemoHandler extends BaseQueueHandler {
       handle({ msg, event, correlationId, startTime }) {
         console.log('Received: ', event);
@@ -107,7 +112,7 @@ describe('Test Readme examples', function() {
   });
 
   it('test advanced usage with getReply', async function() {
-    const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
+    rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
     class DemoHandler extends BaseQueueHandler {
       handle({ msg, event, correlationId, startTime }) {
         console.log('Received: ', event);
@@ -134,7 +139,7 @@ describe('Test Readme examples', function() {
   });
 
   it('test advanced usage add to dlq', async function() {
-    const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
+    rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
     class DemoHandler extends BaseQueueHandler {
       handle({ msg, event, correlationId, startTime }) {
         return Promise.reject(new Error('test Error')); //throw new Error('test error');

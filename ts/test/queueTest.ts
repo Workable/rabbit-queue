@@ -27,6 +27,10 @@ describe('Test Queue class', function() {
     sandbox.restore();
   });
 
+  after(async function() {
+    await rabbit.close();
+  });
+
   it('should create Queue', async function() {
     const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
     await queue.created;

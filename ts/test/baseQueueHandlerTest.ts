@@ -26,6 +26,10 @@ describe('Test baseQueueHandler', function() {
     await rabbit.connected;
   });
 
+  after(async function() {
+    await rabbit.close();
+  });
+
   afterEach(async function() {
     await rabbit.destroyQueue(this.name);
     await rabbit.destroyQueue(this.name + '_dlq');

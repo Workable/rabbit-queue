@@ -15,7 +15,7 @@
     "watch": "tsc -w -p .",
     "prepublishOnly": "npm run build && npm run test-docker",
     "pretest": "tslint ts/*.ts && npm run build",
-    "test": "istanbul test ./node_modules/.bin/_mocha js/test/**.js -- --exit -R spec --timeout 10000",
+    "test": "istanbul test ./node_modules/.bin/_mocha js/test/**.js -- -R spec --timeout 10000",
     "test-docker": "docker-compose run rabbit-queue npm run test --coverage ",
     "posttest": "remap-istanbul -i coverage/coverage.json -o coverage/lcov-report -t html"
   },
