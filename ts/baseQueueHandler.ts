@@ -111,7 +111,7 @@ abstract class BaseQueueHandler {
     msg.properties.headers.errors = {
       name: err.name,
       message: err.message,
-      stack: err.stack.substr(0, 200),
+      stack: err.stack && err.stack.substr(0, 200),
       time: new Date().toString()
     };
   }

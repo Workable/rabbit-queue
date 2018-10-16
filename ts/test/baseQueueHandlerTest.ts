@@ -111,6 +111,25 @@ describe('Test baseQueueHandler', function() {
     }
   });
 
+  it('should add to dlq after x retries and get error response - handles stack missing', async function() {
+    const handler = new DemoHandler(this.name, rabbit, {
+      retries: 0,
+      retryDelay: 10
+    });
+    const handle = (handler.handle = sandbox.spy(() => {
+      throw { foo: 'banana' };
+    }));
+    handler.afterDlq = function() {
+      return 'response';
+    };
+    try {
+      await rabbit.getReply(this.name, { test: 'data' }, { correlationId: '4' });
+    } catch (e) {
+      console.log(e);
+      e.should.eql({ foo: 'banana' });
+    }
+  });
+
   it('should add to dlq after x retries and get no response because afterDlq returns STOP_PROPAGATION', async function() {
     const handler = new DemoHandler(this.name, rabbit, {
       retries: 0,
