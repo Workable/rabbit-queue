@@ -1,6 +1,6 @@
 import * as amqp from 'amqplib';
 import { Channel } from './channel';
-import raceUntil from 'race-until';
+import { raceUntil } from 'race-until';
 import { getReply } from './replyQueue';
 import * as log4js from '@log4js-node/log4js-api';
 
@@ -41,7 +41,7 @@ export default {
       channel.publish(exchange, routingKey, bufferContent, headers, cb);
     });
     if (timeout) {
-      return raceUntil(reply, timeout, false);
+      return raceUntil(reply, timeout, new Error('Timed out'));
     } else {
       return reply;
     }

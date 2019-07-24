@@ -9,9 +9,8 @@
     "declaration": true,
     "suppressImplicitAnyIndexErrors": true,
     "outDir": "./js",
-    "sourceMap": true
+    "sourceMap": true,
+    "skipLibCheck": true
   },
-  "filesGlob": [
-    "./*.ts"
-  ]
+  "filesGlob": ["./*.ts"]
 }

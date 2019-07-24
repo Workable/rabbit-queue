@@ -2,7 +2,7 @@ import * as uuid from 'uuid';
 import * as amqp from 'amqplib';
 import { Channel } from './channel';
 import { getReply } from './replyQueue';
-import raceUntil from 'race-until';
+import { raceUntil } from 'race-until';
 import * as log4js from '@log4js-node/log4js-api';
 
 const logger = log4js.getLogger('rabbit-queue');
@@ -141,7 +141,7 @@ export default class Queue {
       channel.sendToQueue(name, bufferContent, headers, cb);
     });
     if (timeout) {
-      return raceUntil(reply, timeout, false);
+      return raceUntil(reply, timeout, new Error('Timed out'));
     } else {
       return reply;
     }
