@@ -8,7 +8,7 @@ import { Readable } from 'stream';
 
 const logger = log4js.getLogger('rabbit-queue');
 let replyHandlers = {};
-let steamHandlers = {};
+let streamHandlers = {};
 
 export async function createReplyQueue(channel: Channel) {
   await channel.assertQueue('', { exclusive: true }).then(replyTo => {
@@ -19,6 +19,7 @@ export async function createReplyQueue(channel: Channel) {
 
 export function addHandler(correlationId, handler: (err: Error, body: string) => void) {
   assert(!replyHandlers[correlationId], `Already added reply handler with this id: ${correlationId}.`);
+  assert(!streamHandlers[correlationId], `Already exists stream handler with this id: ${correlationId}.`);
   replyHandlers[correlationId] = handler;
 }
 
@@ -65,14 +66,19 @@ function onReply(msg: amqp.Message) {
 
 function handleStreamReply(msg: amqp.Message, id: string) {
   const replyHandler = replyHandlers[id];
-  let streamHandler = steamHandlers[id];
+  let streamHandler = streamHandlers[id];
+  if (replyHandler && streamHandler) {
+    delete replyHandlers[id];
+    return replyHandler(new Error(`Both replyHandler and StreamHandler exist for id: ${id}`));
+  }
   if (!streamHandler) {
     if (!replyHandler) {
       logger.error(`No reply Handler found for ${id}`);
       return;
     }
     delete replyHandlers[id];
-    streamHandler = steamHandlers[id] = new Readable({ objectMode: true, read() {} });
+    console.log('deleted');
+    streamHandler = streamHandlers[id] = new Readable({ objectMode: true, read() {} });
     replyHandler(null, streamHandler);
   }
   const body = msg.content.toString();
@@ -80,6 +86,6 @@ function handleStreamReply(msg: amqp.Message, id: string) {
   logger.info(`[${id}] <- Returning${obj === null && ' the end of'} stream reply ${msg.content.byteLength} bytes`);
   streamHandler.push(obj);
   if (obj === null) {
-    delete streamHandler[id];
+    delete streamHandlers[id];
   }
 }
