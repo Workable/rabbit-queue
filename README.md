@@ -178,19 +178,44 @@ rabbit
     .catch(error => console.log('error', error)); //error will be 'test Error';
 ```
 
-### Logging
+### Example with Stream rpc (works if both consumer and producer user rabbit-queue)
 
+```javascript
+    const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
+    class DemoHandler extends BaseQueueHandler {
+      handle({ msg, event, correlationId, startTime }) {
+        const stream = new Readable({ read() {} });
+        stream.push('streaming');
+        stream.push('events');
+        stream.push(null); //the end
+        return stream;
+      }
+    }
+
+    new DemoHandler('demoQueue', rabbit, {
+      retries: 3,
+      retryDelay: 1,
+      logEnabled: true
+    });
+
+    const reply = await rabbit.getReply('demoQueue', { test: 'data' }, { correlationId: '5' });
+    for await (const chunk of reply) {
+      console.log(`Received chunk: ${chunk.toString()}`);
+    }
+```
+
+### Logging
 
 Rabbit-queue uses log4js-api so you need to install log4js for logging to work.
 
 Creations of queues, bindings are logged in debug level.
-Message enqueues, dequeeus are logged in info level.
+Message enqueues, dequeues are logged in info level.
 Errors in BaseQueueHandler are logged in error level. (You can add your own error logging logic in afterDlq method.)
-
 
 Using log4js v2 and custom appenders like [log4js_honeybadger_appender](https://www.npmjs.com/package/log4js_honeybadger_appender) you can directly log rabbit-queue errors directly to honeybadger.
 
 log4js configuration example
+
 ```javascript
 log4js.configure({
   appenders: {
