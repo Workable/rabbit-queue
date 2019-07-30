@@ -3,6 +3,7 @@ import 'should';
 import * as assert from 'assert';
 import * as sinon from 'sinon';
 import Queue from '../queue';
+import { Readable } from 'stream';
 const sandbox = sinon.sandbox.create();
 
 describe('Test Queue class', function() {
@@ -163,6 +164,35 @@ describe('Test Queue class', function() {
     }
     spy.calledOnce.should.be.true();
     spy.args[0].slice(0, 3).should.eql([this.name, Buffer.from(JSON.stringify(content)), headers]);
+    await new Promise(r => setTimeout(r, 10));
+  });
+
+  it('should getReply as a stream', async function() {
+    const spy = sandbox.spy(rabbit.channel, 'sendToQueue');
+    const content = { content: true };
+    const headers = { headers: { test: 1 }, correlationId: '1', persistent: false, replyTo: rabbit.channel.replyName };
+    const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
+    const stream = new Readable({ read() {} });
+    await queue.subscribe((msg, ack) => ack(null, stream));
+    stream.push('AB');
+    const result = await Queue.getReply(content, headers, rabbit.channel, this.name, queue);
+    stream.push('BC');
+    stream.push(null);
+    result.constructor.should.equal(Readable);
+    const chunks = [];
+    for await (const chunk of result) {
+      chunks.push(chunk.toString());
+    }
+    chunks.should.eql(['AB', 'BC']);
+    const streamHeaders = { correlationId: '1', headers: { isStream: true } };
+    spy.args.should.eql([
+      [this.name, Buffer.from(JSON.stringify(content)), headers, spy.args[0][3]],
+      [rabbit.channel.replyName, Buffer.from(JSON.stringify('AB')), streamHeaders],
+      [rabbit.channel.replyName, Buffer.from(JSON.stringify('BC')), streamHeaders],
+      [rabbit.channel.replyName, Buffer.from(JSON.stringify(null)), streamHeaders, spy.args[3][3]]
+    ]);
+    spy.args[0][3].should.be.Function();
+    spy.args[3][3].should.be.Function();
   });
 
   it('should bind to exchange', async function() {

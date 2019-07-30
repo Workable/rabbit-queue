@@ -38,7 +38,7 @@
   "devDependencies": {
     "@types/amqplib": "0.3.29",
     "@types/mocha": "2.2.32",
-    "@types/node": "6.0.40",
+    "@types/node": "12.6.8",
     "@types/node-uuid": "0.0.28",
     "@types/should": "8.1.30",
     "@types/sinon": "1.16.30",

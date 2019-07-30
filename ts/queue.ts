@@ -4,6 +4,7 @@ import { Channel } from './channel';
 import { getReply } from './replyQueue';
 import { raceUntil } from 'race-until';
 import * as log4js from '@log4js-node/log4js-api';
+import { Readable } from 'stream';
 
 const logger = log4js.getLogger('rabbit-queue');
 
@@ -84,23 +85,31 @@ export default class Queue {
     if (!msg) {
       return;
     }
-    const hasReply = !!msg.properties.replyTo;
-    this.handler(msg, (error, reply) => {
-      if (hasReply && reply !== Queue.STOP_PROPAGATION) {
-        if (error) {
-          reply = Object.assign({}, Queue.ERROR_DURING_REPLY, { error_message: error });
+    this.handler(msg, async (error, reply) => {
+      const { replyTo, correlationId } = msg.properties;
+      if (error && reply !== Queue.STOP_PROPAGATION) {
+        reply = Object.assign({}, Queue.ERROR_DURING_REPLY, { error_message: error });
+      }
+
+      if (!replyTo || reply === Queue.STOP_PROPAGATION) {
+        ack();
+      } else if (reply instanceof Readable) {
+        for await (const chunk of reply) {
+          const replyBuffer = Buffer.from(JSON.stringify(chunk.toString() || ''));
+          this.channel.sendToQueue(replyTo, replyBuffer, { correlationId, headers: { isStream: true } });
         }
-        var replyBuffer = Buffer.from(JSON.stringify(reply || ''));
         this.channel.sendToQueue(
-          msg.properties.replyTo,
-          replyBuffer,
+          replyTo,
+          Buffer.from(JSON.stringify(null)),
           {
-            correlationId: msg.properties.correlationId
+            correlationId,
+            headers: { isStream: true }
           },
           ack
         );
       } else {
-        ack();
+        const replyBuffer = Buffer.from(JSON.stringify(reply || ''));
+        this.channel.sendToQueue(replyTo, replyBuffer, { correlationId }, ack);
       }
     });
   }
