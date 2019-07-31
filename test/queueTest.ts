@@ -1,8 +1,8 @@
-import Rabbit from '../rabbit';
+import Rabbit from '../ts/rabbit';
 import 'should';
 import * as assert from 'assert';
 import * as sinon from 'sinon';
-import Queue from '../queue';
+import Queue from '../ts/queue';
 import { Readable } from 'stream';
 const sandbox = sinon.sandbox.create();
 
@@ -168,6 +168,7 @@ describe('Test Queue class', function() {
   });
 
   it('should getReply as a stream', async function() {
+    if (process.env.SKIP_STREAM) return;
     const spy = sandbox.spy(rabbit.channel, 'sendToQueue');
     const content = { content: true };
     const headers = { headers: { test: 1 }, correlationId: '1', persistent: false, replyTo: rabbit.channel.replyName };

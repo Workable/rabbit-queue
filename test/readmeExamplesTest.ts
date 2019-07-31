@@ -1,9 +1,10 @@
+/* tslint:disable:no-unused-expression */
 import 'should';
 import * as assert from 'assert';
 import * as sinon from 'sinon';
-import Exchange from '../exchange';
-import Rabbit from '../rabbit';
-import BaseQueueHandler from '../baseQueueHandler';
+import Exchange from '../ts/exchange';
+import Rabbit from '../ts/rabbit';
+import BaseQueueHandler from '../ts/baseQueueHandler';
 import * as log4js from '@log4js-node/log4js-api';
 import { Readable } from 'stream';
 
@@ -166,6 +167,7 @@ describe('Test Readme examples', function() {
 
   it('test example with stream rpc', async function() {
     rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
+    if (process.env.SKIP_STREAM) return;
     class DemoHandler extends BaseQueueHandler {
       handle({ msg, event, correlationId, startTime }) {
         const stream = new Readable({ read() {} });

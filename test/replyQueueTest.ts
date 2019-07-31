@@ -1,9 +1,9 @@
 import 'should';
 import * as assert from 'assert';
 import * as sinon from 'sinon';
-import * as ReplyQueue from '../replyQueue';
-import Rabbit from '../rabbit';
-import Queue from '../queue';
+import * as ReplyQueue from '../ts/replyQueue';
+import Rabbit from '../ts/rabbit';
+import Queue from '../ts/queue';
 import { Readable } from 'stream';
 const sandbox = sinon.sandbox.create();
 import * as should from 'should';
@@ -75,6 +75,7 @@ describe('Test ReplyQueue', function() {
   it('should call Handler on message with isStream: true', async function() {
     rabbit = new Rabbit(this.url);
     await rabbit.connected;
+    if (process.env.SKIP_STREAM) return;
     const stub = sandbox.stub(rabbit.channel, 'consume');
     await ReplyQueue.createReplyQueue(rabbit.channel);
     let handler;
@@ -112,6 +113,7 @@ describe('Test ReplyQueue', function() {
   it('should call throw error if called getReply with isStream:true with same correlationId', async function() {
     rabbit = new Rabbit(this.url);
     await rabbit.connected;
+    if (process.env.SKIP_STREAM) return;
     const stub = sandbox.stub(rabbit.channel, 'consume');
     await ReplyQueue.createReplyQueue(rabbit.channel);
     let handler = () => {};

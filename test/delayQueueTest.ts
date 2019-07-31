@@ -1,7 +1,7 @@
 import * as sinon from 'sinon';
-import * as DelayQueue from '../delayQueue';
-import Rabbit from '../rabbit';
-import * as Queue from '../queue';
+import * as DelayQueue from '../ts/delayQueue';
+import Rabbit from '../ts/rabbit';
+import * as Queue from '../ts/queue';
 const sandbox = sinon.sandbox.create();
 
 describe('Test DelayQueue', function() {
