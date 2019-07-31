@@ -1,7 +1,7 @@
 import * as uuid from 'uuid';
 import * as amqp from 'amqplib';
 import { Channel } from './channel';
-import { getReply } from './replyQueue';
+import { getReply } from './reply-queue';
 import { raceUntil } from 'race-until';
 import * as log4js from '@log4js-node/log4js-api';
 import { Readable } from 'stream';

@@ -1,7 +1,7 @@
 import * as amqp from 'amqplib';
 import { Channel } from './channel';
 import { raceUntil } from 'race-until';
-import { getReply } from './replyQueue';
+import { getReply } from './reply-queue';
 import * as log4js from '@log4js-node/log4js-api';
 
 const logger = log4js.getLogger('rabbit-queue');

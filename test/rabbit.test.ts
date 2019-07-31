@@ -4,8 +4,8 @@ import * as assert from 'assert';
 import * as sinon from 'sinon';
 import Queue from '../ts/queue';
 import Exchange from '../ts/exchange';
-import * as ReplyQueue from '../ts/replyQueue';
-import * as DelayQueue from '../ts/delayQueue';
+import * as ReplyQueue from '../ts/reply-queue';
+import * as DelayQueue from '../ts/delay-queue';
 import * as amqp from 'amqplib';
 
 const sandbox = sinon.sandbox.create();

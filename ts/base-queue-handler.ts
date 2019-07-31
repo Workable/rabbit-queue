@@ -1,7 +1,5 @@
 import Rabbit from './rabbit';
 import * as amqp from 'amqplib';
-import Queue from './queue';
-import * as assert from 'assert';
 import * as log4js from '@log4js-node/log4js-api';
 
 abstract class BaseQueueHandler {
