@@ -128,31 +128,31 @@ export default class Rabbit extends EventEmitter {
     await Queue.publish(obj, headers, this.channel, name, this.queues[name]);
   }
 
-  async publishWithDelay(name: string, obj, headers?: amqp.Options.Publish, prefix?: string) {
+  async publishWithDelay(name: string, obj, properties?: amqp.Options.Publish, prefix?: string) {
     if (!this.scheduledPublish) {
       throw new Error('scheduledPublish is not enabled');
     }
     name = this.updateName(name, prefix);
     await this.connected;
-    await publishWithDelay(this.updateName('delay'), obj, headers, this.channel, name);
+    await publishWithDelay(this.updateName('delay'), obj, properties, this.channel, name);
   }
 
-  async getReply(name: string, obj, headers: amqp.Options.Publish, prefix?: string, timeout?: number) {
+  async getReply(name: string, obj, properties: amqp.Options.Publish, prefix?: string, timeout?: number) {
     name = this.updateName(name, prefix);
     await this.connected;
-    return await Queue.getReply(obj, headers, this.channel, name, this.queues[name], timeout);
+    return await Queue.getReply(obj, properties, this.channel, name, this.queues[name], timeout);
   }
 
   async getTopicReply(
     topicName: string,
     content: any,
-    headers: amqp.Options.Publish,
+    properties: amqp.Options.Publish,
     prefix?: string,
     timeout?: number
   ) {
     topicName = this.updateName(topicName, prefix);
     await this.connected;
-    return await Exchange.getReply(this.channel, 'amq.topic', topicName, content, headers, timeout);
+    return await Exchange.getReply(this.channel, 'amq.topic', topicName, content, properties, timeout);
   }
 
   async publishExchange(exchange: string, routingKey: string, content, headers: amqp.Options.Publish, prefix?: string) {

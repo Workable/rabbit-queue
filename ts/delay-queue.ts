@@ -2,6 +2,7 @@ import { Channel } from './channel';
 import * as amqp from 'amqplib';
 import Queue from './queue';
 import * as log4js from '@log4js-node/log4js-api';
+import { decode } from './encode-decode';
 
 const logger = log4js.getLogger('rabbit-queue');
 let delayedQueue: { [key: string]: Queue } = {};
@@ -39,7 +40,7 @@ export async function publishWithDelay(
   const timestamp = new Date().getTime();
   Queue.publish(
     { queueName, obj, timestamp },
-    { expiration, ...headers },
+    { expiration, ...headers, contentType: 'application/json' },
     channel,
     delayedQueue[name].name,
     delayedQueue[name]
@@ -49,8 +50,7 @@ export async function publishWithDelay(
 function onMessage(channel: Channel) {
   return async (msg: amqp.Message, ack) => {
     const id = msg.properties.correlationId;
-    const body = msg.content.toString();
-    const { queueName, obj, timestamp } = JSON.parse(body);
+    const { queueName, obj, timestamp } = decode(msg);
     const { properties } = msg;
     const { ['x-death']: xDeath, ...rest } = properties.headers;
     logger.debug(`[${id}] -> Received expired msg after ${xDeath[0]['original-expiration']} ms. \

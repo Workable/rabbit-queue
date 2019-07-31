@@ -1,6 +1,7 @@
 import Rabbit from './rabbit';
 import * as amqp from 'amqplib';
 import * as log4js from '@log4js-node/log4js-api';
+import { decode } from './encode-decode';
 
 abstract class BaseQueueHandler {
   public dlqName: string;
@@ -86,8 +87,7 @@ abstract class BaseQueueHandler {
   async tryHandle(retries, msg: amqp.Message, ack: (error, reply) => any) {
     try {
       const startTime = this.getTime();
-      var body = msg.content.toString();
-      const event = JSON.parse(body);
+      const event = decode(msg);
       const correlationId = this.getCorrelationId(msg, event);
       this.logger.debug('[%s] #%s Dequeueing %s ', correlationId, retries + 1, this.queueName);
 
@@ -147,8 +147,7 @@ abstract class BaseQueueHandler {
   async addToDLQ(retries, msg: amqp.Message, ack) {
     try {
       const correlationId = this.getCorrelationId(msg);
-      const body = msg.content.toString();
-      const event = JSON.parse(body);
+      const event = decode(msg);
       this.logger.warn('[%s] Adding to dlq: %s after %s retries', correlationId, this.dlqName, retries);
       await this.rabbit.publish(this.dlqName, event, msg.properties);
       const response = await this.afterDlq({ msg, event });
