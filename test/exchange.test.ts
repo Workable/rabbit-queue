@@ -29,7 +29,12 @@ describe('Test Exchange', function() {
     const stub = sandbox.stub(rabbit.channel, 'publish');
     stub.callsArgWith(4, null, 'ok');
     const content = { content: true };
-    const headers = { headers: { test: 1 }, persistent: false };
+    const headers = {
+      headers: { test: 1 },
+      correlationId: '1',
+      persistent: false,
+      contentType: 'application/json'
+    };
     await Exchange.publish(rabbit.channel, 'exchange', 'routingKey', content, headers);
     stub.calledOnce.should.be.true();
     stub.args[0].slice(0, 4).should.eql(['exchange', 'routingKey', new Buffer(JSON.stringify(content)), headers]);
@@ -38,7 +43,13 @@ describe('Test Exchange', function() {
   it('should publish to topic with getReply', async function() {
     const spy = sandbox.spy(rabbit.channel, 'publish');
     const content = { content: true };
-    const headers = { headers: { test: 1 }, correlationId: '1', persistent: false, replyTo: rabbit.channel.replyName };
+    const headers = {
+      headers: { test: 1 },
+      correlationId: '1',
+      persistent: false,
+      replyTo: rabbit.channel.replyName,
+      contentType: 'application/json'
+    };
     const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
     await queue.subscribe((msg, ack) => ack(null, 'result'));
     await rabbit.bindToTopic(this.name, 'binding');
@@ -51,7 +62,13 @@ describe('Test Exchange', function() {
   it('should publish to topic with getReply and timeout and fail', async function() {
     const spy = sandbox.spy(rabbit.channel, 'publish');
     const content = { content: true };
-    const headers = { headers: { test: 1 }, correlationId: '2', persistent: false, replyTo: rabbit.channel.replyName };
+    const headers = {
+      headers: { test: 1 },
+      correlationId: '2',
+      persistent: false,
+      replyTo: rabbit.channel.replyName,
+      contentType: 'application/json'
+    };
     const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
     await queue.subscribe((msg, ack) => setTimeout(() => ack(null, 'result'), 10));
     await rabbit.bindToTopic(this.name, 'binding');
@@ -69,7 +86,13 @@ describe('Test Exchange', function() {
   it('should publish to topic with getReply and fail', async function() {
     const spy = sandbox.spy(rabbit.channel, 'publish');
     const content = { content: true };
-    const headers = { headers: { test: 1 }, correlationId: '3', persistent: false, replyTo: rabbit.channel.replyName };
+    const headers = {
+      headers: { test: 1 },
+      correlationId: '3',
+      persistent: false,
+      replyTo: rabbit.channel.replyName,
+      contentType: 'application/json'
+    };
     const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
     await queue.subscribe((msg, ack) => setTimeout(() => ack('error'), 10));
     await rabbit.bindToTopic(this.name, 'binding');

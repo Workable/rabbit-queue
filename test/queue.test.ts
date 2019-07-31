@@ -100,7 +100,13 @@ describe('Test Queue class', function() {
   it('should publish to queue with getReply', async function() {
     const spy = sandbox.spy(rabbit.channel, 'sendToQueue');
     const content = { content: true };
-    const headers = { headers: { test: 1 }, correlationId: '1', persistent: false, replyTo: rabbit.channel.replyName };
+    const headers = {
+      headers: { test: 1 },
+      correlationId: '1',
+      persistent: false,
+      replyTo: rabbit.channel.replyName,
+      contentType: 'application/json'
+    };
     const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
     await queue.subscribe((msg, ack) => ack(null, 'result'));
     const result = await Queue.getReply(content, headers, rabbit.channel, this.name, queue);
@@ -112,7 +118,13 @@ describe('Test Queue class', function() {
   it('should publish to queue with getReply but get reply after queue acknowledment', async function() {
     const spy = sandbox.spy(rabbit.channel, 'sendToQueue');
     const content = { content: true };
-    const headers = { headers: { test: 1 }, correlationId: '1', persistent: false, replyTo: rabbit.channel.replyName };
+    const headers = {
+      headers: { test: 1 },
+      correlationId: '1',
+      persistent: false,
+      replyTo: rabbit.channel.replyName,
+      contentType: 'application/json'
+    };
     const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
     await queue.subscribe((msg, ack) => ack(null, Queue.STOP_PROPAGATION));
     setTimeout(() => rabbit.publish(rabbit.channel.replyName, 'new_result', headers, ''), 10);
@@ -125,7 +137,13 @@ describe('Test Queue class', function() {
   it('should publish to queue with getReply and timeout', async function() {
     const spy = sandbox.spy(rabbit.channel, 'sendToQueue');
     const content = { content: true };
-    const headers = { headers: { test: 1 }, correlationId: '1', persistent: false, replyTo: rabbit.channel.replyName };
+    const headers = {
+      headers: { test: 1 },
+      correlationId: '1',
+      persistent: false,
+      replyTo: rabbit.channel.replyName,
+      contentType: 'application/json'
+    };
     const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
     await queue.subscribe((msg, ack) => setTimeout(() => ack(null, 'result'), 1));
     const result = await Queue.getReply(content, headers, rabbit.channel, this.name, queue, 10);
@@ -137,7 +155,13 @@ describe('Test Queue class', function() {
   it('should publish to queue with getReply and reply with error', async function() {
     const spy = sandbox.spy(rabbit.channel, 'sendToQueue');
     const content = { content: true };
-    const headers = { headers: { test: 1 }, correlationId: '1', persistent: false, replyTo: rabbit.channel.replyName };
+    const headers = {
+      headers: { test: 1 },
+      correlationId: '1',
+      persistent: false,
+      replyTo: rabbit.channel.replyName,
+      contentType: 'application/json'
+    };
     const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
     await queue.subscribe((msg, ack) => setTimeout(() => ack('error'), 1));
     try {
@@ -153,7 +177,13 @@ describe('Test Queue class', function() {
   it('should publish to queue with getReply and timeout and fail', async function() {
     const spy = sandbox.spy(rabbit.channel, 'sendToQueue');
     const content = { content: true };
-    const headers = { headers: { test: 1 }, correlationId: '1', persistent: false, replyTo: rabbit.channel.replyName };
+    const headers = {
+      headers: { test: 1 },
+      correlationId: '1',
+      persistent: false,
+      replyTo: rabbit.channel.replyName,
+      contentType: 'application/json'
+    };
     const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
     await queue.subscribe((msg, ack) => setTimeout(() => ack(null, 'result'), 10));
     try {
@@ -171,7 +201,13 @@ describe('Test Queue class', function() {
     if (process.env.SKIP_STREAM) return;
     const spy = sandbox.spy(rabbit.channel, 'sendToQueue');
     const content = { content: true };
-    const headers = { headers: { test: 1 }, correlationId: '1', persistent: false, replyTo: rabbit.channel.replyName };
+    const headers = {
+      headers: { test: 1 },
+      correlationId: '1',
+      persistent: false,
+      replyTo: rabbit.channel.replyName,
+      contentType: 'application/json'
+    };
     const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
     const stream = new Readable({ read() {} });
     await queue.subscribe((msg, ack) => ack(null, stream));
@@ -185,7 +221,7 @@ describe('Test Queue class', function() {
       chunks.push(chunk.toString());
     }
     chunks.should.eql(['AB', 'BC']);
-    const streamHeaders = { correlationId: '1', headers: { isStream: true } };
+    const streamHeaders = { correlationId: '1', contentType: 'application/json', headers: { isStream: true } };
     spy.args.should.eql([
       [this.name, Buffer.from(JSON.stringify(content)), headers, spy.args[0][3]],
       [rabbit.channel.replyName, Buffer.from(JSON.stringify('AB')), streamHeaders],

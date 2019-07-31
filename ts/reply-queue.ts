@@ -5,6 +5,7 @@ import * as uuid from 'uuid';
 import Queue from './queue';
 import * as log4js from '@log4js-node/log4js-api';
 import { Readable } from 'stream';
+import { decode, encode } from './encode-decode';
 
 const logger = log4js.getLogger('rabbit-queue');
 let replyHandlers = {};
@@ -23,21 +24,21 @@ export function addHandler(correlationId, handler: (err: Error, body: string) =>
   replyHandlers[correlationId] = handler;
 }
 
-export function getReply(content: any, headers: amqp.Options.Publish = {}, channel: Channel, cb: Function) {
+export function getReply(content: any, properties: amqp.Options.Publish = {}, channel: Channel, cb: Function) {
   return new Promise((resolve, reject) => {
-    var msg = JSON.stringify(content);
-    var correlationId = headers.correlationId || uuid.v4();
-    headers = Object.assign(
+    var correlationId = properties.correlationId || uuid.v4();
+    properties = Object.assign(
       {
         persistent: false,
         correlationId,
-        replyTo: channel.replyName
+        replyTo: channel.replyName,
+        contentType: 'application/json'
       },
-      headers
+      properties
     );
-    const bufferContent = Buffer.from(msg);
+    const bufferContent = encode(content, properties.contentType);
     addHandler(correlationId, (err, body) => (err ? reject(err) : resolve(body)));
-    cb(bufferContent, headers, correlationId, (err, ok) => (err ? reject(err) : {}));
+    cb(bufferContent, properties, correlationId, (err, ok) => (err ? reject(err) : {}));
   });
 }
 
@@ -54,9 +55,8 @@ function onReply(msg: amqp.Message) {
   }
   delete replyHandlers[id];
 
-  const body = msg.content.toString();
   logger.info(`[${id}] <- Returning reply ${msg.content.byteLength} bytes`);
-  const obj = JSON.parse(body);
+  const obj = decode(msg);
   if (obj && obj.error && obj.error_code === Queue.ERROR_DURING_REPLY.error_code) {
     replyHandler(new Error(obj.error_message), null);
   } else {
@@ -80,8 +80,7 @@ function handleStreamReply(msg: amqp.Message, id: string) {
     streamHandler = streamHandlers[id] = new Readable({ objectMode: true, read() {} });
     replyHandler(null, streamHandler);
   }
-  const body = msg.content.toString();
-  const obj = JSON.parse(body);
+  const obj = decode(msg);
   logger.info(`[${id}] <- Returning${obj === null && ' the end of'} stream reply ${msg.content.byteLength} bytes`);
   streamHandler.push(obj);
   if (obj === null) {
