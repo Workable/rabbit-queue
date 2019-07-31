@@ -4,7 +4,7 @@ import * as assert from 'assert';
 import * as sinon from 'sinon';
 import Exchange from '../ts/exchange';
 import Rabbit from '../ts/rabbit';
-import BaseQueueHandler from '../ts/baseQueueHandler';
+import BaseQueueHandler from '../ts/base-queue-handler';
 import * as log4js from '@log4js-node/log4js-api';
 import { Readable } from 'stream';
 

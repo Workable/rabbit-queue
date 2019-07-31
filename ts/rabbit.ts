@@ -1,7 +1,7 @@
 import * as amqp from 'amqplib';
 import { EventEmitter } from 'events';
-import { createReplyQueue } from './replyQueue';
-import { createDelayQueueReply, publishWithDelay } from './delayQueue';
+import { createReplyQueue } from './reply-queue';
+import { createDelayQueueReply, publishWithDelay } from './delay-queue';
 import { Channel } from './channel';
 import Queue from './queue';
 import Exchange from './exchange';

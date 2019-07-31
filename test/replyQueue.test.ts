@@ -1,7 +1,7 @@
 import 'should';
 import * as assert from 'assert';
 import * as sinon from 'sinon';
-import * as ReplyQueue from '../ts/replyQueue';
+import * as ReplyQueue from '../ts/reply-queue';
 import Rabbit from '../ts/rabbit';
 import Queue from '../ts/queue';
 import { Readable } from 'stream';
