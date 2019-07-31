@@ -125,7 +125,6 @@ describe('Test baseQueueHandler', function() {
     try {
       await rabbit.getReply(this.name, { test: 'data' }, { correlationId: '4' });
     } catch (e) {
-      console.log(e);
       e.should.eql({ foo: 'banana' });
     }
   });

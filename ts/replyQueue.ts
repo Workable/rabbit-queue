@@ -4,9 +4,11 @@ import * as assert from 'assert';
 import * as uuid from 'uuid';
 import Queue from './queue';
 import * as log4js from '@log4js-node/log4js-api';
+import { Readable } from 'stream';
 
 const logger = log4js.getLogger('rabbit-queue');
 let replyHandlers = {};
+let streamHandlers = {};
 
 export async function createReplyQueue(channel: Channel) {
   await channel.assertQueue('', { exclusive: true }).then(replyTo => {
@@ -17,6 +19,7 @@ export async function createReplyQueue(channel: Channel) {
 
 export function addHandler(correlationId, handler: (err: Error, body: string) => void) {
   assert(!replyHandlers[correlationId], `Already added reply handler with this id: ${correlationId}.`);
+  assert(!streamHandlers[correlationId], `Already exists stream handler with this id: ${correlationId}.`);
   replyHandlers[correlationId] = handler;
 }
 
@@ -40,6 +43,10 @@ export function getReply(content: any, headers: amqp.Options.Publish = {}, chann
 
 function onReply(msg: amqp.Message) {
   const id = msg.properties.correlationId;
+  const headers = msg.properties.headers || {};
+  if (headers.isStream) {
+    return handleStreamReply(msg, id);
+  }
   const replyHandler = replyHandlers[id];
   if (!replyHandler) {
     logger.error(`No reply Handler found for ${id}`);
@@ -54,5 +61,30 @@ function onReply(msg: amqp.Message) {
     replyHandler(new Error(obj.error_message), null);
   } else {
     replyHandler(null, obj);
+  }
+}
+
+function handleStreamReply(msg: amqp.Message, id: string) {
+  const replyHandler = replyHandlers[id];
+  let streamHandler = streamHandlers[id];
+  if (replyHandler && streamHandler) {
+    delete replyHandlers[id];
+    return replyHandler(new Error(`Both replyHandler and StreamHandler exist for id: ${id}`));
+  }
+  if (!streamHandler) {
+    if (!replyHandler) {
+      logger.error(`No reply Handler found for ${id}`);
+      return;
+    }
+    delete replyHandlers[id];
+    streamHandler = streamHandlers[id] = new Readable({ objectMode: true, read() {} });
+    replyHandler(null, streamHandler);
+  }
+  const body = msg.content.toString();
+  const obj = JSON.parse(body);
+  logger.info(`[${id}] <- Returning${obj === null && ' the end of'} stream reply ${msg.content.byteLength} bytes`);
+  streamHandler.push(obj);
+  if (obj === null) {
+    delete streamHandlers[id];
   }
 }

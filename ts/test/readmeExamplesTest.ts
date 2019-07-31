@@ -5,6 +5,7 @@ import Exchange from '../exchange';
 import Rabbit from '../rabbit';
 import BaseQueueHandler from '../baseQueueHandler';
 import * as log4js from '@log4js-node/log4js-api';
+import { Readable } from 'stream';
 
 describe('Test Readme examples', function() {
   let rabbit: Rabbit;
@@ -161,5 +162,29 @@ describe('Test Readme examples', function() {
       .getReply('demoQueue', { test: 'data' }, { correlationId: '5' })
       .then(reply => console.log('received reply', reply))
       .catch(error => console.log('error', error)); //error will be 'test Error';
+  });
+
+  it('test example with stream rpc', async function() {
+    rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
+    class DemoHandler extends BaseQueueHandler {
+      handle({ msg, event, correlationId, startTime }) {
+        const stream = new Readable({ read() {} });
+        stream.push('streaming');
+        stream.push('events');
+        stream.push(null); //the end
+        return stream;
+      }
+    }
+
+    new DemoHandler('demoQueue', rabbit, {
+      retries: 3,
+      retryDelay: 1,
+      logEnabled: true
+    });
+
+    const reply = await rabbit.getReply('demoQueue', { test: 'data' }, { correlationId: '5' });
+    for await (const chunk of reply) {
+      console.log(`Received chunk: ${chunk.toString()}`);
+    }
   });
 });
