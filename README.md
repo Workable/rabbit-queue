@@ -17,7 +17,7 @@ above [amqplib](https://github.com/squaremo/amqp.node).
 
 It is written in typescript and requires node v6.0.0 or higher.
 
-By default it works weel with jsons. Ovewrite properties.conentType to work with strings or binary data.
+By default it works well with jsons. Ovewrite properties.contentType to work with strings or binary data.
 
 ## Connecting to RabbitMQ
 
