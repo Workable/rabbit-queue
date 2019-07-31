@@ -15,7 +15,8 @@ and [Jackrabbit](https://github.com/hunterloftis/jackrabbit).
 It makes [RabbitMQ](http://www.rabbitmq.com/) management and integration easy. Provides an abstraction layer
 above [amqplib](https://github.com/squaremo/amqp.node).
 
-It is written in typescript and requires node v6.0.0 or higher.
+It is written in typescript and requires node v10.0.0 or higher.
+Most features will work with nodejs v6.0.0 and higher but using older versions than v10.0.0 is not recommended. RPC streams will not work in older versions.
 
 By default it works well with jsons. Override properties.contentType to work with strings or binary data.
 
@@ -180,7 +181,7 @@ rabbit
     .catch(error => console.log('error', error)); //error will be 'test Error';
 ```
 
-### Example with Stream rpc (works if both consumer and producer user rabbit-queue)
+### Example with Stream rpc (works if both consumer and producer use rabbit-queue)
 
 ```javascript
     const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
@@ -232,6 +233,12 @@ log4js.configure({
 ```
 
 ### Changelog
+
+### v3.x.x to v4.x.x
+
+Code was reorganized.
+RPC stream was introduced. Drops support for node older than v10.0.0 due to the usage of async generators
+Supports contentType. By default it is application/json for backwards compatibility.
 
 ### v2.x.x to v3.x.x
 
