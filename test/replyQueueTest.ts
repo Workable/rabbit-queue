@@ -1,9 +1,9 @@
 import 'should';
 import * as assert from 'assert';
 import * as sinon from 'sinon';
-import * as ReplyQueue from '../replyQueue';
-import Rabbit from '../rabbit';
-import Queue from '../queue';
+import * as ReplyQueue from '../ts/replyQueue';
+import Rabbit from '../ts/rabbit';
+import Queue from '../ts/queue';
 import { Readable } from 'stream';
 const sandbox = sinon.sandbox.create();
 import * as should from 'should';

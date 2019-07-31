@@ -1,0 +1,6 @@
+--require ./test/env.ts
+--require ts-node/register
+--require source-map-support/register
+--full-trace
+--file test/index.ts
+test/**/*.ts

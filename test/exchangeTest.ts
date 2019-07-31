@@ -1,9 +1,9 @@
 import 'should';
 import * as assert from 'assert';
 import * as sinon from 'sinon';
-import Exchange from '../exchange';
-import Rabbit from '../rabbit';
-import Queue from '../queue';
+import Exchange from '../ts/exchange';
+import Rabbit from '../ts/rabbit';
+import Queue from '../ts/queue';
 const sandbox = sinon.sandbox.create();
 
 describe('Test Exchange', function() {

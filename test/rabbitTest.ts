@@ -1,11 +1,11 @@
-import Rabbit from '../rabbit';
+import Rabbit from '../ts/rabbit';
 import 'should';
 import * as assert from 'assert';
 import * as sinon from 'sinon';
-import Queue from '../queue';
-import Exchange from '../exchange';
-import * as ReplyQueue from '../replyQueue';
-import * as DelayQueue from '../delayQueue';
+import Queue from '../ts/queue';
+import Exchange from '../ts/exchange';
+import * as ReplyQueue from '../ts/replyQueue';
+import * as DelayQueue from '../ts/delayQueue';
 import * as amqp from 'amqplib';
 
 const sandbox = sinon.sandbox.create();

@@ -1,8 +1,8 @@
 import * as should from 'should';
 import * as assert from 'assert';
 import * as sinon from 'sinon';
-import Rabbit from '../rabbit';
-import BaseQueueHandler from '../baseQueueHandler';
+import Rabbit from '../ts/rabbit';
+import BaseQueueHandler from '../ts/baseQueueHandler';
 const sandbox = sinon.sandbox.create();
 
 describe('Test baseQueueHandler', function() {

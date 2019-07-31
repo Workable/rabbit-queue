@@ -1,7 +1,4 @@
-import { install } from 'source-map-support';
-
-install();
-
+console.log(process.env.TS_NODE_PROJECT);
 (<any>global).logger = {
   info: () => ({}),
   debug: () => ({}),
