@@ -75,6 +75,7 @@ describe('Test ReplyQueue', function() {
   it('should call Handler on message with isStream: true', async function() {
     rabbit = new Rabbit(this.url);
     await rabbit.connected;
+    if (process.env.SKIP_STREAM) return;
     const stub = sandbox.stub(rabbit.channel, 'consume');
     await ReplyQueue.createReplyQueue(rabbit.channel);
     let handler;
@@ -112,6 +113,7 @@ describe('Test ReplyQueue', function() {
   it('should call throw error if called getReply with isStream:true with same correlationId', async function() {
     rabbit = new Rabbit(this.url);
     await rabbit.connected;
+    if (process.env.SKIP_STREAM) return;
     const stub = sandbox.stub(rabbit.channel, 'consume');
     await ReplyQueue.createReplyQueue(rabbit.channel);
     let handler = () => {};

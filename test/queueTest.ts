@@ -168,6 +168,7 @@ describe('Test Queue class', function() {
   });
 
   it('should getReply as a stream', async function() {
+    if (process.env.SKIP_STREAM) return;
     const spy = sandbox.spy(rabbit.channel, 'sendToQueue');
     const content = { content: true };
     const headers = { headers: { test: 1 }, correlationId: '1', persistent: false, replyTo: rabbit.channel.replyName };

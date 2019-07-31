@@ -166,6 +166,7 @@ describe('Test Readme examples', function() {
 
   it('test example with stream rpc', async function() {
     rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
+    if (process.env.SKIP_STREAM) return;
     class DemoHandler extends BaseQueueHandler {
       handle({ msg, event, correlationId, startTime }) {
         const stream = new Readable({ read() {} });
