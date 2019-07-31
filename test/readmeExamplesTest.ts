@@ -1,3 +1,4 @@
+/* tslint:disable:no-unused-expression */
 import 'should';
 import * as assert from 'assert';
 import * as sinon from 'sinon';
