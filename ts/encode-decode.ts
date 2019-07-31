@@ -1,4 +1,4 @@
-export function encode(message = '', contentType = 'application/json') {
+export function encode(message: Buffer | string | Object = '', contentType = 'application/json') {
   if (contentType === 'application/json') {
     return Buffer.from(JSON.stringify(message));
   }
