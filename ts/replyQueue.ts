@@ -77,7 +77,6 @@ function handleStreamReply(msg: amqp.Message, id: string) {
       return;
     }
     delete replyHandlers[id];
-    console.log('deleted');
     streamHandler = streamHandlers[id] = new Readable({ objectMode: true, read() {} });
     replyHandler(null, streamHandler);
   }
