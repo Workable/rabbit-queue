@@ -147,6 +147,7 @@ describe('Test ReplyQueue', function() {
           chunks.should.eql(['AB', 'BC']);
         } catch (e) {
           e.should.eql(new Error('test-error'));
+          reject(e);
         }
         resolve();
       };
@@ -164,6 +165,6 @@ describe('Test ReplyQueue', function() {
       properties: { correlationId: 1, headers: { isStream: true } },
       content: Buffer.from(JSON.stringify({ error: true, error_code: 999, error_message: 'test-error' }))
     });
-    await promise;
+    await promise.should.be.rejected();
   });
 });
