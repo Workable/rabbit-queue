@@ -232,6 +232,47 @@ describe('Test Queue class', function() {
     spy.args[3][3].should.be.Function();
   });
 
+  it('should getReply as a stream and handle error', async function() {
+    if (process.env.SKIP_STREAM) return;
+    const spy = sandbox.spy(rabbit.channel, 'sendToQueue');
+    const content = { content: true };
+    const headers = {
+      headers: { test: 1 },
+      correlationId: '1',
+      persistent: false,
+      replyTo: rabbit.channel.replyName,
+      contentType: 'application/json'
+    };
+    const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
+    const stream = new Readable({ read() {} });
+    await queue.subscribe((msg, ack) => ack(null, stream));
+    stream.push('AB');
+    const result = await Queue.getReply(content, headers, rabbit.channel, this.name, queue);
+    stream.push('BC');
+    stream.emit('error', new Error('test-error'));
+    result.constructor.should.equal(Readable);
+    const chunks = [];
+    try {
+      for await (const chunk of result) {
+        chunks.push(chunk.toString());
+      }
+    } catch (e) {
+      e.should.eql(new Error('test-error'));
+    }
+    chunks.should.eql(['AB']);
+    const streamHeaders = { correlationId: '1', contentType: 'application/json', headers: { isStream: true } };
+    spy.args.should.eql([
+      [this.name, Buffer.from(JSON.stringify(content)), headers, spy.args[0][3]],
+      [rabbit.channel.replyName, Buffer.from(JSON.stringify('AB')), streamHeaders],
+      [
+        rabbit.channel.replyName,
+        Buffer.from(JSON.stringify({ error: true, error_code: 999, error_message: 'test-error' })),
+        streamHeaders,
+        spy.args[2][3]
+      ]
+    ]);
+  });
+
   it('should bind to exchange', async function() {
     const spy = sandbox.spy(rabbit.channel, 'bindQueue');
     const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
