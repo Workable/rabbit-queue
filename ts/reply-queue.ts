@@ -84,9 +84,11 @@ function handleStreamReply(msg: amqp.Message, id: string) {
 
   if (obj && obj.error && obj.error_code === Queue.ERROR_DURING_REPLY.error_code) {
     delete streamHandlers[id];
-    return streamHandler.emit('error', new Error(obj.error_message));
+    return setImmediate(() => streamHandler.emit('error', new Error(obj.error_message)));
   }
-  logger.info(`[${id}] <- Returning${obj === null && ' the end of'} stream reply ${msg.content.byteLength} bytes`);
+  logger.info(
+    `[${id}] <- Returning${(obj === null && ' the end of') || ''} stream reply ${msg.content.byteLength} bytes`
+  );
   streamHandler.push(obj);
   if (obj === null) {
     delete streamHandlers[id];
