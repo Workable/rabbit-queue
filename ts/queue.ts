@@ -97,8 +97,9 @@ export default class Queue {
       } else if (reply instanceof Readable) {
         const properties = { correlationId, contentType: 'application/json', headers: { isStream: true } };
         try {
-          for await (const chunk of reply) {
-            const replyBuffer = encode(chunk.toString());
+          for await (let chunk of reply) {
+            if (chunk instanceof Buffer) chunk = chunk.toString();
+            const replyBuffer = encode(chunk);
             this.channel.sendToQueue(replyTo, replyBuffer, properties);
           }
           this.channel.sendToQueue(replyTo, encode(null), properties, ack);
