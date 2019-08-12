@@ -96,11 +96,20 @@ export default class Queue {
         ack();
       } else if (reply instanceof Readable) {
         const properties = { correlationId, contentType: 'application/json', headers: { isStream: true } };
-        for await (const chunk of reply) {
-          const replyBuffer = encode(chunk.toString());
-          this.channel.sendToQueue(replyTo, replyBuffer, properties);
+        try {
+          for await (const chunk of reply) {
+            const replyBuffer = encode(chunk.toString());
+            this.channel.sendToQueue(replyTo, replyBuffer, properties);
+          }
+          this.channel.sendToQueue(replyTo, encode(null), properties, ack);
+        } catch (e) {
+          this.channel.sendToQueue(
+            replyTo,
+            encode(Object.assign({}, Queue.ERROR_DURING_REPLY, { error_message: e.message })),
+            properties,
+            ack
+          );
         }
-        this.channel.sendToQueue(replyTo, encode(null), properties, ack);
       } else {
         this.channel.sendToQueue(replyTo, encode(reply), { correlationId, contentType: 'application/json' }, ack);
       }

@@ -128,4 +128,43 @@ describe('Test ReplyQueue', function() {
       content: Buffer.from(JSON.stringify(null))
     });
   });
+
+  it('should emit error on message with isStream: true', async function() {
+    rabbit = new Rabbit(this.url);
+    await rabbit.connected;
+    if (process.env.SKIP_STREAM) return;
+    const stub = sandbox.stub(rabbit.channel, 'consume');
+    await ReplyQueue.createReplyQueue(rabbit.channel);
+    let handler;
+    let promise = new Promise((resolve, reject) => {
+      handler = async (err, body) => {
+        try {
+          body.should.be.instanceOf(Readable);
+          const chunks = [];
+          for await (const chunk of body) {
+            chunks.push(chunk.toString());
+          }
+          chunks.should.eql(['AB', 'BC']);
+        } catch (e) {
+          e.should.eql(new Error('test-error'));
+          reject(e);
+        }
+        resolve();
+      };
+    });
+    ReplyQueue.addHandler(1, handler);
+    stub.callArgWith(1, {
+      properties: { correlationId: 1, headers: { isStream: true } },
+      content: Buffer.from(JSON.stringify('AB'))
+    });
+    stub.callArgWith(1, {
+      properties: { correlationId: 1, headers: { isStream: true } },
+      content: Buffer.from(JSON.stringify('BC'))
+    });
+    stub.callArgWith(1, {
+      properties: { correlationId: 1, headers: { isStream: true } },
+      content: Buffer.from(JSON.stringify({ error: true, error_code: 999, error_message: 'test-error' }))
+    });
+    await promise.should.be.rejected();
+  });
 });
