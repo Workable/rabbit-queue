@@ -67,6 +67,7 @@ function onReply(msg: amqp.Message) {
 }
 
 function handleStreamReply(msg: amqp.Message, id: string) {
+  const correlationId = msg.properties.correlationId;
   const replyHandler = replyHandlers[id];
   let streamHandler = streamHandlers[id];
   let backpressure = false;
@@ -100,10 +101,10 @@ function handleStreamReply(msg: amqp.Message, id: string) {
     return setImmediate(() => streamHandler.destroy(new Error(obj.error_message)));
   }
   logger.info(
-    `[${id}] <- Returning${(obj === null && ' the end of') || ''} stream reply ${msg.content.byteLength} bytes`
+    `[${correlationId}] <- Returning${(obj === null && ' the end of') || ''} stream reply ${msg.content.byteLength} bytes`
   );
   const properties = {
-    correlationId: msg.properties.correlationId,
+    correlationId,
     contentType: 'application/json',
     persistent: false
   };
