@@ -109,6 +109,7 @@ export default class Queue {
           }
           this.channel.sendToQueue(replyTo, encode(null), properties, ack);
         } catch (e) {
+          logger.info(`[${correlationId}] -> Publishing to queue ${replyTo} error ${e}`);
           this.channel.sendToQueue(
             replyTo,
             encode(Object.assign({}, Queue.ERROR_DURING_REPLY, { error_message: e.message })),
