@@ -87,7 +87,7 @@ export default class Queue {
       return;
     }
     this.handler(msg, async (error, reply) => {
-      const { replyTo, correlationId } = msg.properties;
+      const { replyTo, correlationId, headers } = msg.properties;
       if (error && reply !== Queue.STOP_PROPAGATION) {
         reply = Object.assign({}, Queue.ERROR_DURING_REPLY, { error_message: error });
       }
@@ -105,7 +105,7 @@ export default class Queue {
           for await (let chunk of reply) {
             properties.correlationId = `${correlationId}.${id++}`;
             if (chunk instanceof Buffer) chunk = chunk.toString();
-            await Queue.getReply(chunk, properties, this.channel, replyTo);
+            await Queue.getReply(chunk, properties, this.channel, replyTo, null, headers.timeout);
           }
           this.channel.sendToQueue(replyTo, encode(null), properties, ack);
         } catch (e) {
