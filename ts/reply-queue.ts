@@ -84,10 +84,10 @@ function handleStreamReply(msg: amqp.Message, id: string) {
       objectMode: true,
       read() {
         backpressure = false;
-        if (options[msg.properties.correlationId]) {
-          const { replyTo, properties } = options[msg.properties.correlationId];
+        if (options[id]) {
+          const { replyTo, properties } = options[id];
           if (replyTo) options.channel.sendToQueue(replyTo, encode(null), properties);
-          delete options[msg.properties.correlationId];
+          delete options[id];
         }
       }
     });
@@ -109,7 +109,7 @@ function handleStreamReply(msg: amqp.Message, id: string) {
   };
   backpressure = !streamHandler.push(obj);
   if (backpressure) {
-    options[msg.properties.correlationId] = { replyTo: msg.properties.replyTo, properties };
+    options[id] = { replyTo: msg.properties.replyTo, properties };
   } else if (msg.properties.replyTo) {
     options.channel.sendToQueue(msg.properties.replyTo, encode(null), properties);
   }
