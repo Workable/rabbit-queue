@@ -221,12 +221,39 @@ describe('Test Queue class', function() {
       chunks.push(chunk);
     }
     chunks.should.eql(['AB', 'BC']);
-    const streamHeaders = { correlationId: '1', contentType: 'application/json', headers: { isStream: true } };
+    const streamHeaders = {
+      correlationId: '1',
+      contentType: 'application/json',
+      headers: { isStream: true, correlationId: '1' },
+      persistent: false,
+      replyTo: queue.channel.replyName
+    };
+    const replyHeaders = {
+      contentType: 'application/json',
+      persistent: false
+    };
     spy.args.should.eql([
       [this.name, Buffer.from(JSON.stringify(content)), headers, spy.args[0][3]],
-      [rabbit.channel.replyName, Buffer.from(JSON.stringify('AB')), streamHeaders],
-      [rabbit.channel.replyName, Buffer.from(JSON.stringify('BC')), streamHeaders],
-      [rabbit.channel.replyName, Buffer.from(JSON.stringify(null)), streamHeaders, spy.args[3][3]]
+      [
+        rabbit.channel.replyName,
+        Buffer.from(JSON.stringify('AB')),
+        { ...streamHeaders, correlationId: '1.0' },
+        spy.args[1][3]
+      ],
+      [rabbit.channel.replyName, Buffer.from(JSON.stringify(null)), { ...replyHeaders, correlationId: '1.0' }],
+      [
+        rabbit.channel.replyName,
+        Buffer.from(JSON.stringify('BC')),
+        { ...streamHeaders, correlationId: '1.1' },
+        spy.args[3][3]
+      ],
+      [rabbit.channel.replyName, Buffer.from(JSON.stringify(null)), { ...replyHeaders, correlationId: '1.1' }],
+      [
+        rabbit.channel.replyName,
+        Buffer.from(JSON.stringify(null)),
+        { correlationId: '1.1', contentType: 'application/json', headers: { isStream: true, correlationId: '1' } },
+        spy.args[5][3]
+      ]
     ]);
     spy.args[0][3].should.be.Function();
     spy.args[3][3].should.be.Function();
@@ -260,15 +287,31 @@ describe('Test Queue class', function() {
       e.should.eql(new Error('test-error'));
     }
     chunks.should.eql(['AB']);
-    const streamHeaders = { correlationId: '1', contentType: 'application/json', headers: { isStream: true } };
+    const streamHeaders = {
+      correlationId: '1',
+      contentType: 'application/json',
+      headers: { isStream: true, correlationId: '1' },
+      persistent: false,
+      replyTo: queue.channel.replyName
+    };
+    const replyHeaders = {
+      contentType: 'application/json',
+      persistent: false
+    };
     spy.args.should.eql([
       [this.name, Buffer.from(JSON.stringify(content)), headers, spy.args[0][3]],
-      [rabbit.channel.replyName, Buffer.from(JSON.stringify('AB')), streamHeaders],
+      [
+        rabbit.channel.replyName,
+        Buffer.from(JSON.stringify('AB')),
+        { ...streamHeaders, correlationId: '1.0' },
+        spy.args[1][3]
+      ],
+      [rabbit.channel.replyName, Buffer.from(JSON.stringify(null)), { ...replyHeaders, correlationId: '1.0' }],
       [
         rabbit.channel.replyName,
         Buffer.from(JSON.stringify({ error: true, error_code: 999, error_message: 'test-error' })),
-        streamHeaders,
-        spy.args[2][3]
+        { correlationId: '1.0', contentType: 'application/json', headers: { isStream: true, correlationId: '1' } },
+        spy.args[3][3]
       ]
     ]);
   });
@@ -301,15 +344,31 @@ describe('Test Queue class', function() {
       e.should.eql(new Error('test-error'));
     }
     chunks.should.eql(['AB']);
-    const streamHeaders = { correlationId: '1', contentType: 'application/json', headers: { isStream: true } };
+    const streamHeaders = {
+      correlationId: '1',
+      contentType: 'application/json',
+      headers: { isStream: true, correlationId: '1' },
+      persistent: false,
+      replyTo: queue.channel.replyName
+    };
+    const replyHeaders = {
+      contentType: 'application/json',
+      persistent: false
+    };
     spy.args.should.eql([
       [this.name, Buffer.from(JSON.stringify(content)), headers, spy.args[0][3]],
-      [rabbit.channel.replyName, Buffer.from(JSON.stringify('AB')), streamHeaders],
+      [
+        rabbit.channel.replyName,
+        Buffer.from(JSON.stringify('AB')),
+        { ...streamHeaders, correlationId: '1.0' },
+        spy.args[1][3]
+      ],
+      [rabbit.channel.replyName, Buffer.from(JSON.stringify(null)), { ...replyHeaders, correlationId: '1.0' }],
       [
         rabbit.channel.replyName,
         Buffer.from(JSON.stringify({ error: true, error_code: 999, error_message: 'test-error' })),
-        streamHeaders,
-        spy.args[2][3]
+        { correlationId: '1.0', contentType: 'application/json', headers: { isStream: true, correlationId: '1' } },
+        spy.args[3][3]
       ]
     ]);
   });

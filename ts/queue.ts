@@ -95,12 +95,17 @@ export default class Queue {
       if (!replyTo || reply === Queue.STOP_PROPAGATION) {
         ack();
       } else if (reply instanceof Readable) {
-        const properties = { correlationId, contentType: 'application/json', headers: { isStream: true } };
+        const properties = {
+          correlationId,
+          contentType: 'application/json',
+          headers: { isStream: true, correlationId }
+        };
         try {
+          let id = 0;
           for await (let chunk of reply) {
+            properties.correlationId = `${correlationId}.${id++}`;
             if (chunk instanceof Buffer) chunk = chunk.toString();
-            const replyBuffer = encode(chunk);
-            this.channel.sendToQueue(replyTo, replyBuffer, properties);
+            await Queue.getReply(chunk, properties, this.channel, replyTo);
           }
           this.channel.sendToQueue(replyTo, encode(null), properties, ack);
         } catch (e) {

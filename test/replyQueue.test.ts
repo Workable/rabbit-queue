@@ -77,6 +77,7 @@ describe('Test ReplyQueue', function() {
     await rabbit.connected;
     if (process.env.SKIP_STREAM) return;
     const stub = sandbox.stub(rabbit.channel, 'consume');
+    const stubSendToQueue = sandbox.stub(rabbit.channel, 'sendToQueue');
     await ReplyQueue.createReplyQueue(rabbit.channel);
     let handler;
     let promise = new Promise((resolve, reject) => {
@@ -96,15 +97,15 @@ describe('Test ReplyQueue', function() {
     });
     ReplyQueue.addHandler(1, handler);
     stub.callArgWith(1, {
-      properties: { correlationId: 1, headers: { isStream: true } },
+      properties: { headers: { isStream: true, correlationId: 1 } },
       content: Buffer.from(JSON.stringify('AB'))
     });
     stub.callArgWith(1, {
-      properties: { correlationId: 1, headers: { isStream: true } },
+      properties: { headers: { isStream: true, correlationId: 1 } },
       content: Buffer.from(JSON.stringify('BC'))
     });
     stub.callArgWith(1, {
-      properties: { correlationId: 1, headers: { isStream: true } },
+      properties: { headers: { isStream: true, correlationId: 1 } },
       content: Buffer.from(JSON.stringify(null))
     });
     await promise;
@@ -119,12 +120,12 @@ describe('Test ReplyQueue', function() {
     let handler = () => {};
     ReplyQueue.addHandler(2, handler);
     stub.callArgWith(1, {
-      properties: { correlationId: 2, headers: { isStream: true } },
+      properties: { correlationId: 2, headers: { isStream: true, correlationId: 2 } },
       content: Buffer.from(JSON.stringify('AB'))
     });
     should.throws(() => ReplyQueue.addHandler(2, handler), /Already exists stream handler with this id: 2/);
     stub.callArgWith(1, {
-      properties: { correlationId: 2, headers: { isStream: true } },
+      properties: { correlationId: 2, headers: { isStream: true, correlationId: 2 } },
       content: Buffer.from(JSON.stringify(null))
     });
   });
@@ -154,15 +155,15 @@ describe('Test ReplyQueue', function() {
     });
     ReplyQueue.addHandler(1, handler);
     stub.callArgWith(1, {
-      properties: { correlationId: 1, headers: { isStream: true } },
+      properties: { correlationId: 1, headers: { isStream: true, correlationId: 1 } },
       content: Buffer.from(JSON.stringify('AB'))
     });
     stub.callArgWith(1, {
-      properties: { correlationId: 1, headers: { isStream: true } },
+      properties: { correlationId: 1, headers: { isStream: true, correlationId: 1 } },
       content: Buffer.from(JSON.stringify('BC'))
     });
     stub.callArgWith(1, {
-      properties: { correlationId: 1, headers: { isStream: true } },
+      properties: { correlationId: 1, headers: { isStream: true, correlationId: 1 } },
       content: Buffer.from(JSON.stringify({ error: true, error_code: 999, error_message: 'test-error' }))
     });
     await promise.should.be.rejected();
@@ -194,7 +195,7 @@ describe('Test ReplyQueue', function() {
     });
     ReplyQueue.addHandler(1, handler);
     stub.callArgWith(1, {
-      properties: { correlationId: 1, headers: { isStream: true } },
+      properties: { correlationId: 1, headers: { isStream: true, correlationId: 1 } },
       content: Buffer.from(JSON.stringify({ error: true, error_code: 999, error_message: 'test-error' }))
     });
     await promise.should.be.rejected();

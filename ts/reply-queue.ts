@@ -10,10 +10,12 @@ import { decode, encode } from './encode-decode';
 const logger = log4js.getLogger('rabbit-queue');
 let replyHandlers = {};
 let streamHandlers = {};
+let options: { channel: Channel } = { channel: null };
 
 export async function createReplyQueue(channel: Channel) {
   await channel.assertQueue('', { exclusive: true }).then(replyTo => {
     channel.replyName = replyTo.queue;
+    options.channel = channel;
     channel.consume(channel.replyName, onReply, { noAck: true });
   });
 }
@@ -46,7 +48,7 @@ function onReply(msg: amqp.Message) {
   const id = msg.properties.correlationId;
   const headers = msg.properties.headers || {};
   if (headers.isStream) {
-    return handleStreamReply(msg, id);
+    return handleStreamReply(msg, headers.correlationId);
   }
   const replyHandler = replyHandlers[id];
   if (!replyHandler) {
@@ -67,6 +69,7 @@ function onReply(msg: amqp.Message) {
 function handleStreamReply(msg: amqp.Message, id: string) {
   const replyHandler = replyHandlers[id];
   let streamHandler = streamHandlers[id];
+  let backpressure = false;
   if (replyHandler && streamHandler) {
     delete replyHandlers[id];
     return replyHandler(new Error(`Both replyHandler and StreamHandler exist for id: ${id}`));
@@ -77,19 +80,39 @@ function handleStreamReply(msg: amqp.Message, id: string) {
       return;
     }
     delete replyHandlers[id];
-    streamHandler = streamHandlers[id] = new Readable({ objectMode: true, read() {} });
+    streamHandler = streamHandlers[id] = new Readable({
+      objectMode: true,
+      read() {
+        backpressure = false;
+        if (options[msg.properties.correlationId]) {
+          const { replyTo, properties } = options[msg.properties.correlationId];
+          if (replyTo) options.channel.sendToQueue(replyTo, encode(null), properties);
+          delete options[msg.properties.correlationId];
+        }
+      }
+    });
     replyHandler(null, streamHandler);
   }
   const obj = decode(msg);
 
   if (obj && obj.error && obj.error_code === Queue.ERROR_DURING_REPLY.error_code) {
     delete streamHandlers[id];
-    return setImmediate(() => streamHandler.emit('error', new Error(obj.error_message)));
+    return setImmediate(() => streamHandler.destroy(new Error(obj.error_message)));
   }
   logger.info(
     `[${id}] <- Returning${(obj === null && ' the end of') || ''} stream reply ${msg.content.byteLength} bytes`
   );
-  streamHandler.push(obj);
+  const properties = {
+    correlationId: msg.properties.correlationId,
+    contentType: 'application/json',
+    persistent: false
+  };
+  backpressure = !streamHandler.push(obj);
+  if (backpressure) {
+    options[msg.properties.correlationId] = { replyTo: msg.properties.replyTo, properties };
+  } else if (msg.properties.replyTo) {
+    options.channel.sendToQueue(msg.properties.replyTo, encode(null), properties);
+  }
   if (obj === null) {
     delete streamHandlers[id];
   }
