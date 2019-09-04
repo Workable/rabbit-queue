@@ -87,7 +87,7 @@ export default class Queue {
       return;
     }
     this.handler(msg, async (error, reply) => {
-      const { replyTo, correlationId } = msg.properties;
+      const { replyTo, correlationId, headers } = msg.properties;
       if (error && reply !== Queue.STOP_PROPAGATION) {
         reply = Object.assign({}, Queue.ERROR_DURING_REPLY, { error_message: error });
       }
@@ -95,15 +95,27 @@ export default class Queue {
       if (!replyTo || reply === Queue.STOP_PROPAGATION) {
         ack();
       } else if (reply instanceof Readable) {
-        const properties = { correlationId, contentType: 'application/json', headers: { isStream: true } };
+        const properties = {
+          correlationId,
+          contentType: 'application/json',
+          headers: { isStream: true, correlationId }
+        };
         try {
+          let id = 0;
           for await (let chunk of reply) {
+            properties.correlationId = `${correlationId}.${id++}`;
             if (chunk instanceof Buffer) chunk = chunk.toString();
-            const replyBuffer = encode(chunk);
-            this.channel.sendToQueue(replyTo, replyBuffer, properties);
+            if (headers.backpressure) {
+              await Queue.getReply(chunk, properties, this.channel, replyTo, null, headers.timeout);
+            } else {
+              const bufferContent = encode(chunk);
+              logger.info(`[${correlationId}] -> Publishing to queue ${replyTo} ${bufferContent.byteLength} bytes`);
+              this.channel.sendToQueue(replyTo, bufferContent, properties);
+            }
           }
           this.channel.sendToQueue(replyTo, encode(null), properties, ack);
         } catch (e) {
+          logger.error(`[${correlationId}] -> Publishing to queue ${replyTo} error ${e}`);
           this.channel.sendToQueue(
             replyTo,
             encode(Object.assign({}, Queue.ERROR_DURING_REPLY, { error_message: e.message })),
@@ -112,7 +124,9 @@ export default class Queue {
           );
         }
       } else {
-        this.channel.sendToQueue(replyTo, encode(reply), { correlationId, contentType: 'application/json' }, ack);
+        const bufferContent = encode(reply);
+        logger.info(`[${correlationId}] -> Publishing to queue ${replyTo} ${bufferContent.byteLength} bytes`);
+        this.channel.sendToQueue(replyTo, bufferContent, { correlationId, contentType: 'application/json' }, ack);
       }
     });
   }

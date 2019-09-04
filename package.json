@@ -1,6 +1,6 @@
 {
   "name": "rabbit-queue",
-  "version": "4.1.2",
+  "version": "4.2.0-beta",
   "description": "AMQP/RabbitMQ queue management library.",
   "main": "js/index.js",
   "keywords": [
@@ -16,7 +16,8 @@
     "prepublishOnly": "npm run build && npm run test-docker",
     "pretest": "tslint --project ./ts/ && tslint  ./test/**/*.ts && npm run build",
     "test": "nyc mocha",
-    "test-docker": "docker-compose run rabbit-queue npm run test"
+    "test-docker": "docker-compose run rabbit-queue npm run test",
+    "prepare": "npm run build"
   },
   "lint-staged": {
     "*.{ts,js}": [
