@@ -108,12 +108,14 @@ export default class Queue {
             if (headers.backpressure) {
               await Queue.getReply(chunk, properties, this.channel, replyTo, null, headers.timeout);
             } else {
-              this.channel.sendToQueue(replyTo, encode(chunk), properties);
+              const bufferContent = encode(chunk);
+              logger.info(`[${correlationId}] -> Publishing to queue ${replyTo} ${bufferContent.byteLength} bytes`);
+              this.channel.sendToQueue(replyTo, bufferContent, properties);
             }
           }
           this.channel.sendToQueue(replyTo, encode(null), properties, ack);
         } catch (e) {
-          logger.info(`[${correlationId}] -> Publishing to queue ${replyTo} error ${e}`);
+          logger.error(`[${correlationId}] -> Publishing to queue ${replyTo} error ${e}`);
           this.channel.sendToQueue(
             replyTo,
             encode(Object.assign({}, Queue.ERROR_DURING_REPLY, { error_message: e.message })),
@@ -122,7 +124,9 @@ export default class Queue {
           );
         }
       } else {
-        this.channel.sendToQueue(replyTo, encode(reply), { correlationId, contentType: 'application/json' }, ack);
+        const bufferContent = encode(reply);
+        logger.info(`[${correlationId}] -> Publishing to queue ${replyTo} ${bufferContent.byteLength} bytes`);
+        this.channel.sendToQueue(replyTo, bufferContent, { correlationId, contentType: 'application/json' }, ack);
       }
     });
   }
