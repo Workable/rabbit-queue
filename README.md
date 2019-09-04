@@ -234,6 +234,25 @@ log4js.configure({
 
 ### Changelog
 
+### v4.x.x to > v4.3.x
+
+Get reply as a stream supports two more optional headers inside properties:
+
+backpressure (by default false),
+timeout
+
+eg:
+
+```js
+await rabbit.getReply(
+  'demoQueue',
+  { test: 'data' },
+  { correlationId: '5', headers: { backpressure: true, timeout: 10000 } }
+);
+```
+
+If used the rpc that responds to this request will stop sending messages until the receiving stream has consumed those messages or has buffered them (By default nodejs stream buffer for json streams is 16 objects). If this does not happen within the timeout the process will stop. 
+
 ### v3.x.x to v4.x.x
 
 Code was reorganized.
