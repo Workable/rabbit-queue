@@ -253,6 +253,8 @@ await rabbit.getReply(
 
 If used the rpc that responds to this request will stop sending messages until the receiving stream has consumed those messages or has buffered them (By default nodejs stream buffer for json streams is 16 objects). If this does not happen within the timeout the process will stop. 
 
+Use this feature only if both requesting and receiving part have rabbit-queue > 4.3.0
+
 ### v3.x.x to v4.x.x
 
 Code was reorganized.
