@@ -87,7 +87,7 @@ function handleStreamReply(msg: amqp.Message, id: string) {
         backpressure = false;
         if (options[id]) {
           const { replyTo, properties } = options[id];
-          if (replyTo) options.channel.sendToQueue(replyTo, encode(null), properties);
+          if (replyTo) options.channel.sendToQueue(replyTo, encode({ backpressure: true }), properties);
           delete options[id];
         }
       }
@@ -101,7 +101,9 @@ function handleStreamReply(msg: amqp.Message, id: string) {
     return setImmediate(() => streamHandler.destroy(new Error(obj.error_message)));
   }
   logger.info(
-    `[${correlationId}] <- Returning${(obj === null && ' the end of') || ''} stream reply ${msg.content.byteLength} bytes`
+    `[${correlationId}] <- Returning${(obj === null && ' the end of') || ''} stream reply ${
+      msg.content.byteLength
+    } bytes`
   );
   const properties = {
     correlationId,

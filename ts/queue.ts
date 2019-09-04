@@ -105,7 +105,11 @@ export default class Queue {
           for await (let chunk of reply) {
             properties.correlationId = `${correlationId}.${id++}`;
             if (chunk instanceof Buffer) chunk = chunk.toString();
-            await Queue.getReply(chunk, properties, this.channel, replyTo, null, headers.timeout);
+            if (headers.backpressure) {
+              await Queue.getReply(chunk, properties, this.channel, replyTo, null, headers.timeout);
+            } else {
+              this.channel.sendToQueue(replyTo, encode(chunk), properties);
+            }
           }
           this.channel.sendToQueue(replyTo, encode(null), properties, ack);
         } catch (e) {
