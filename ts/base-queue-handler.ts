@@ -107,8 +107,8 @@ abstract class BaseQueueHandler {
   handleError(err, msg) {
     this.logger.error(err);
     msg.properties.headers.errors = {
-      name: err.name,
-      message: err.message,
+      name: err.name && err.name.substr(0, 200),
+      message: err.message && err.message.substr(0, 200),
       stack: err.stack && err.stack.substr(0, 200),
       time: new Date().toString()
     };
