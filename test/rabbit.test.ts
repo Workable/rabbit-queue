@@ -17,6 +17,7 @@ describe('Test rabbit class', function() {
     this.url = process.env.RABBIT_URL || 'amqp://localhost';
     this.name = 'test.queue';
     this.name2 = 'test.queue2';
+    this.name3 = '.queue3';
   });
 
   afterEach(function() {
@@ -105,7 +106,7 @@ describe('Test rabbit class', function() {
     stub.calledOnce.should.be.true();
   });
 
-  it('should publish to queue', async function() {
+  it('should publish to queue by adding prefix_', async function() {
     const stub = sandbox.stub(Queue, 'publish');
     rabbit = new Rabbit(this.url, { prefix: 'test' });
     const content = { content: true };
@@ -113,6 +114,16 @@ describe('Test rabbit class', function() {
     await rabbit.publish(`test_${this.name}`, content, headers);
     stub.calledOnce.should.be.true();
     stub.calledWith(content, headers, rabbit.channel, `test_${this.name}`, undefined).should.be.true();
+  });
+
+  it('should publish to queue by adding only prefix when name starts with .', async function() {
+    const stub = sandbox.stub(Queue, 'publish');
+    rabbit = new Rabbit(this.url, { prefix: 'test' });
+    const content = { content: true };
+    const headers = { headers: { test: 1 } };
+    await rabbit.publish(this.name3, content, headers);
+    stub.calledOnce.should.be.true();
+    stub.calledWith(content, headers, rabbit.channel, `test${this.name3}`, undefined).should.be.true();
   });
 
   it('should publish to queue with Delay', async function() {
