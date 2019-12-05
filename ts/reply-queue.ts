@@ -120,7 +120,7 @@ function handleStreamReply(msg: amqp.Message, id: string) {
   if (stopped[id]) {
     options.channel.sendToQueue(msg.properties.replyTo, new Buffer(JSON.stringify(Queue.STOP_STREAM_MESSAGE)), properties);
     streamHandler.destroy();
-    options[id] = { replyTo: msg.properties.replyTo, properties };
+    delete options[id];
     delete stopped[id];
     delete streamHandlers[id];
     return;

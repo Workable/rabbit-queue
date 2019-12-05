@@ -234,6 +234,22 @@ log4js.configure({
 
 ### Changelog
 
+### v4.2.x to > v4.3.x
+
+RPC stream enhancement: Ability to stop communication on demand when requested data received is sufficient
+
+eg:
+
+```js
+const reply = await rabbit.getReply('demoQueue', { test: 'data' }, { headers: { test: 1, backpressure: true }, correlationId: '1' });
+for await (const chunk of reply) {
+    console.log(`Received chunk: ${chunk.toString()}`);
+    if ("sufficient_data_received") {
+        reply.emit(Queue.STOP_STREAM);
+    }
+}
+```
+
 ### v4.x.x to > v4.2.x
 
 Get reply as a stream supports two more optional headers inside properties:

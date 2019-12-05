@@ -439,6 +439,8 @@ describe('Test Queue class', function() {
     const result = await Queue.getReply(content, headers, rabbit.channel, this.name, queue);
     result.emit(Queue.STOP_STREAM);
     stream.push('BC');
+    stream.push('CD');
+    stream.push('DE');
     stream.push(null);
     result.constructor.should.equal(Readable);
     const chunks = [];
