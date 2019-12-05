@@ -420,4 +420,65 @@ describe('Test Queue class', function() {
     await Queue.unbindFromExchange('amq.topic', this.name, rabbit.channel, this.name, queue);
     spy.calledWith(this.name, 'amq.topic', this.name);
   });
+
+  it('should getReply as a stream and stop on demand', async function() {
+    if (process.env.SKIP_STREAM) return;
+    const spy = sandbox.spy(rabbit.channel, 'sendToQueue');
+    const content = { content: true };
+    const headers = {
+      headers: { test: 1, backpressure: true },
+      correlationId: '1',
+      persistent: false,
+      replyTo: rabbit.channel.replyName,
+      contentType: 'application/json'
+    };
+    const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
+    const stream = new Readable({ objectMode: true, read() {} });
+    await queue.subscribe((msg, ack) => ack(null, stream));
+    stream.push('AB');
+    const result = await Queue.getReply(content, headers, rabbit.channel, this.name, queue);
+    result.emit(Queue.STOP_STREAM);
+    stream.push('BC');
+    stream.push(null);
+    result.constructor.should.equal(Readable);
+    const chunks = [];
+    for await (const chunk of result) {
+      chunks.push(chunk);
+    }
+    chunks.should.eql(['AB']);
+    const streamHeaders = {
+      correlationId: '1',
+      contentType: 'application/json',
+      headers: { isStream: true, correlationId: '1' },
+      persistent: false,
+      replyTo: queue.channel.replyName
+    };
+    const replyHeaders = {
+      contentType: 'application/json',
+      persistent: false
+    };
+    spy.args.should.eql([
+      [this.name, Buffer.from(JSON.stringify(content)), headers, spy.args[0][3]],
+      [
+        rabbit.channel.replyName,
+        Buffer.from(JSON.stringify('AB')),
+        { ...streamHeaders, correlationId: '1.0' },
+        spy.args[1][3]
+      ],
+      [rabbit.channel.replyName, Buffer.from(JSON.stringify(null)), { ...replyHeaders, correlationId: '1.0' }],
+      [
+        rabbit.channel.replyName,
+        Buffer.from(JSON.stringify('BC')),
+        { ...streamHeaders, correlationId: '1.1' },
+        spy.args[3][3]
+      ],
+      [
+        rabbit.channel.replyName,
+        Buffer.from(JSON.stringify(Queue.STOP_STREAM_MESSAGE)),
+        { ...replyHeaders, correlationId: '1.1' },
+      ]
+    ]);
+    spy.args[0][3].should.be.Function();
+    spy.args[3][3].should.be.Function();
+  });
 });

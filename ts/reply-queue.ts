@@ -10,6 +10,7 @@ import { decode, encode } from './encode-decode';
 const logger = log4js.getLogger('rabbit-queue');
 let replyHandlers = {};
 let streamHandlers = {};
+let stopped = {};
 let options: { channel: Channel } = { channel: null };
 
 export async function createReplyQueue(channel: Channel) {
@@ -81,7 +82,7 @@ function handleStreamReply(msg: amqp.Message, id: string) {
       return;
     }
     delete replyHandlers[id];
-    streamHandler = streamHandlers[id] = new Readable({
+    streamHandler = new Readable({
       objectMode: true,
       read() {
         backpressure = false;
@@ -92,6 +93,10 @@ function handleStreamReply(msg: amqp.Message, id: string) {
         }
       }
     });
+    streamHandler.on(Queue.STOP_STREAM, () => {
+      stopped[id] = true;
+    });
+    streamHandlers[id] = streamHandler;
     replyHandler(null, streamHandler);
   }
   const obj = decode(msg);
@@ -111,6 +116,16 @@ function handleStreamReply(msg: amqp.Message, id: string) {
     persistent: false
   };
   backpressure = !streamHandler.push(obj);
+
+  if (stopped[id]) {
+    options.channel.sendToQueue(msg.properties.replyTo, new Buffer(JSON.stringify(Queue.STOP_STREAM_MESSAGE)), properties);
+    streamHandler.destroy();
+    options[id] = { replyTo: msg.properties.replyTo, properties };
+    delete stopped[id];
+    delete streamHandlers[id];
+    return;
+  }
+
   if (backpressure) {
     options[id] = { replyTo: msg.properties.replyTo, properties };
   } else if (msg.properties.replyTo) {
