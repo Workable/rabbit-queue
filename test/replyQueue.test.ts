@@ -111,6 +111,48 @@ describe('Test ReplyQueue', function() {
     await promise;
   });
 
+  it('should get only one message with isStream: true and emiting STOP_STREAM event', async function() {
+    rabbit = new Rabbit(this.url);
+    await rabbit.connected;
+    if (process.env.SKIP_STREAM) return;
+    const stub = sandbox.stub(rabbit.channel, 'consume');
+    const stubSendToQueue = sandbox.stub(rabbit.channel, 'sendToQueue');
+    await ReplyQueue.createReplyQueue(rabbit.channel);
+    let handler;
+    let promise = new Promise((resolve, reject) => {
+      handler = async (err, body) => {
+        try {
+          body.should.be.instanceOf(Readable);
+          const chunks = [];
+          for await (const chunk of body) {
+            chunks.push(chunk.toString());
+            body.emit(Queue.STOP_STREAM);
+          }
+          chunks.should.eql(['AB']);
+        } catch (e) {
+          reject(e);
+        }
+        resolve();
+      };
+    });
+    ReplyQueue.addHandler(1, handler);
+    stub.callArgWith(1, {
+      properties: { headers: { isStream: true, correlationId: 1, headers: { correlationId: 1 } } },
+      content: Buffer.from(JSON.stringify('AB'))
+    });
+    await new Promise(resolve => setTimeout(resolve, 10));
+    stub.callArgWith(1, {
+      properties: { headers: { isStream: true, correlationId: 1, headers: { correlationId: 1 } } },
+      content: Buffer.from(JSON.stringify('BC'))
+    });
+    stub.callArgWith(1, {
+      properties: { headers: { isStream: true, correlationId: 1, headers: { correlationId: 1 } } },
+      content: Buffer.from(JSON.stringify(null))
+    });
+    await promise;
+    stubSendToQueue.calledOnce.should.be.true();
+  });
+
   it('should call throw error if called getReply with isStream:true with same correlationId', async function() {
     rabbit = new Rabbit(this.url);
     await rabbit.connected;
