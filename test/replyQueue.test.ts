@@ -56,7 +56,7 @@ describe('Test ReplyQueue', function() {
     ReplyQueue.addHandler(1, handler);
     stub.callArgWith(1, {
       properties: { correlationId: 1 },
-      content: new Buffer(JSON.stringify(Queue.ERROR_DURING_REPLY))
+      content: Buffer.from(JSON.stringify(Queue.ERROR_DURING_REPLY))
     });
   });
 

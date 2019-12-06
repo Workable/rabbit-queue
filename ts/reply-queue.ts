@@ -118,7 +118,8 @@ function handleStreamReply(msg: amqp.Message, id: string) {
   backpressure = !streamHandler.push(obj);
 
   if (stopped[id]) {
-    options.channel.sendToQueue(msg.properties.replyTo, new Buffer(JSON.stringify(Queue.STOP_STREAM_MESSAGE)), properties);
+    options.channel.sendToQueue(msg.properties.replyTo, Buffer.from(JSON.stringify(Queue.STOP_STREAM_MESSAGE)), properties);
+    streamHandler.emit('end');
     streamHandler.destroy();
     delete options[id];
     delete stopped[id];
