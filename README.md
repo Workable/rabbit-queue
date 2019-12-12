@@ -234,7 +234,7 @@ log4js.configure({
 
 ### Changelog
 
-### v4.2.x to > v4.3.x
+### v4.2.x to > v4.4.x
 
 Attention: The following functionality works with nodejs v10.14.2 and higher. In previous node versions there was a problem not resolving async iteration on destroyed streams
 
