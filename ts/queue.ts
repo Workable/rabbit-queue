@@ -12,6 +12,8 @@ const logger = log4js.getLogger('rabbit-queue');
 export default class Queue {
   static STOP_PROPAGATION = { stopPropagation: true };
   static ERROR_DURING_REPLY = { error: true, error_code: 999 };
+  static STOP_STREAM = 'stop_stream';
+  static STOP_STREAM_MESSAGE = { stopStream: true };
 
   defaultOptions = {
     durable: true,
@@ -106,7 +108,12 @@ export default class Queue {
             properties.correlationId = `${correlationId}.${id++}`;
             if (chunk instanceof Buffer) chunk = chunk.toString();
             if (headers.backpressure) {
-              await Queue.getReply(chunk, properties, this.channel, replyTo, null, headers.timeout);
+              let serviceResponse = await Queue.getReply(chunk, properties, this.channel, replyTo, null, headers.timeout);
+              if (serviceResponse && serviceResponse.stopStream === Queue.STOP_STREAM_MESSAGE.stopStream) {
+                  ack();
+                  reply.destroy();
+                  return;
+              }
             } else {
               const bufferContent = encode(chunk);
               logger.info(`[${correlationId}] -> Publishing to queue ${replyTo} ${bufferContent.byteLength} bytes`);
