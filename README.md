@@ -238,7 +238,7 @@ log4js.configure({
 
 Attention: The following functionality works with nodejs v10.14.2 and higher. In previous node versions there was a problem not resolving async iteration on destroyed streams
 
-RPC stream enhancement: Ability to stop communication on demand when requested data received is sufficient
+RPC stream enhancement: When backpressure is enabled, the consumer can stop communication, when data received is sufficient
 
 eg:
 
