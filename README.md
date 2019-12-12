@@ -236,6 +236,8 @@ log4js.configure({
 
 ### v4.2.x to > v4.3.x
 
+Attention: The following functionality works with nodejs v10.14.2 and higher. In previous node versions there was a problem not resolving async iteration on destroyed streams
+
 RPC stream enhancement: Ability to stop communication on demand when requested data received is sufficient
 
 eg:
