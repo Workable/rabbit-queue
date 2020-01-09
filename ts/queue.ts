@@ -12,7 +12,7 @@ const logger = log4js.getLogger('rabbit-queue');
 export default class Queue {
   static STOP_PROPAGATION = { stopPropagation: true };
   static ERROR_DURING_REPLY = { error: true, error_code: 999 };
-  static STOP_STREAM = 'stop_stream';
+  static STOP_STREAM = 'stopStream';
   static STOP_STREAM_MESSAGE = { stopStream: true };
 
   defaultOptions = {
