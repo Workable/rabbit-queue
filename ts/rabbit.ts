@@ -12,6 +12,7 @@ const logger = log4js.getLogger('rabbit-queue');
 
 export default class Rabbit extends EventEmitter {
   static STOP_PROPAGATION = Queue.STOP_PROPAGATION;
+  static STOP_STREAM = Queue.STOP_STREAM;
   public connection: amqp.Connection;
   public channel: Channel;
   public connected: Promise<any>;
