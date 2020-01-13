@@ -121,6 +121,7 @@ export default class Queue {
               this.channel.sendToQueue(replyTo, bufferContent, properties);
             }
           }
+          logger.info(`[${correlationId}] -> Publishing to queue ${replyTo} 4 bytes (null)`);
           this.channel.sendToQueue(replyTo, encode(null), properties, ack);
         } catch (e) {
           logger.error(`[${correlationId}] -> Publishing to queue ${replyTo} error ${e}`);
