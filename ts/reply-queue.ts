@@ -115,16 +115,23 @@ function handleStreamReply(msg: amqp.Message, id: string) {
     contentType: 'application/json',
     persistent: false
   };
-  backpressure = !streamHandler.push(obj);
 
   if (stopped[id]) {
     options.channel.sendToQueue(msg.properties.replyTo, Buffer.from(JSON.stringify(Queue.STOP_STREAM_MESSAGE)), properties);
-    streamHandler.destroy();
+    streamHandler.push(null);
     delete options[id];
     delete stopped[id];
     delete streamHandlers[id];
+    logger.info(
+      `[${correlationId}] <- Returning (stop event received) the end of stream reply ${
+        msg.content.byteLength
+      } bytes`
+    );
     return;
   }
+
+  // Push to queue after checking if it is stopped in order to "discard" anything received after stopStream event emission
+  backpressure = !streamHandler.push(obj);
 
   if (backpressure) {
     options[id] = { replyTo: msg.properties.replyTo, properties };
