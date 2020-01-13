@@ -112,6 +112,7 @@ export default class Queue {
               if (serviceResponse && serviceResponse.stopStream === Queue.STOP_STREAM_MESSAGE.stopStream) {
                   ack();
                   reply.destroy();
+                  logger.info(`[${correlationId}] -> Received stopStream event. Closing connection`);
                   return;
               }
             } else {
