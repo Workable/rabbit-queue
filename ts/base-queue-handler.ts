@@ -6,6 +6,7 @@ import { decode } from './encode-decode';
 abstract class BaseQueueHandler {
   public dlqName: string;
   public retries: number;
+  public prefetch: number;
   public retryDelay: number;
   public logger;
   public logEnabled: boolean;
@@ -22,6 +23,7 @@ abstract class BaseQueueHandler {
     {
       retries = 3,
       retryDelay = 1000,
+      prefetch = rabbit.prefetch,
       logEnabled = true,
       scope = <'SINGLETON' | 'PROTOTYPE'>BaseQueueHandler.SCOPES.singleton,
       createAndSubscribeToQueue = true
@@ -31,6 +33,7 @@ abstract class BaseQueueHandler {
 
     this.retries = retries;
     this.retryDelay = retryDelay;
+    this.prefetch = prefetch;
     this.logger = logger;
     this.logEnabled = logEnabled;
     this.scope = scope;
@@ -71,6 +74,7 @@ abstract class BaseQueueHandler {
           const instance = new (<any>this.constructor)(this.queueName, this.rabbit, {
             retries: this.retries,
             retryDelay: this.retryDelay,
+            prefetch: this.prefetch,
             logger: this.logger,
             logEnabled: this.logEnabled,
             scope: this.scope,

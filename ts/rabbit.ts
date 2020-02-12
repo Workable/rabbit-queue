@@ -14,7 +14,7 @@ export default class Rabbit extends EventEmitter {
   static STOP_PROPAGATION = Queue.STOP_PROPAGATION;
   static STOP_STREAM = Queue.STOP_STREAM;
   public connection: amqp.Connection;
-  public channel: Channel;
+  public defaultChannel: Channel;
   public connected: Promise<any>;
   public queues: { [s: string]: Queue } = {};
   public connecting = false;
@@ -43,9 +43,12 @@ export default class Rabbit extends EventEmitter {
       return;
     }
     this.connecting = true;
-    let connection = await amqp.connect(this.url, this.socketOptions);
-    let channel = await this.createChannel(connection);
-    await this.initChannel(channel);
+    this.connection = await amqp.connect(this.url, this.socketOptions);
+    this.connection.once('close', error => this.emitDisconnected(error));
+    this.connection.on('error', error => this.emitDisconnected(error));
+    this.defaultChannel = await this.createChannel(this.connection);
+    this.emit('connected');
+    this.connecting = false;
   }
 
   async reconnect() {
@@ -58,25 +61,18 @@ export default class Rabbit extends EventEmitter {
     this.emit('disconnected', error);
   }
 
-  async createChannel(connection: amqp.Connection) {
-    this.connection = connection;
-    this.connection.once('close', error => this.emitDisconnected(error));
-    this.connection.on('error', error => this.emitDisconnected(error));
-    return connection.createConfirmChannel();
-  }
-
-  async initChannel(channel: Channel) {
-    this.channel = channel;
-    this.channel.prefetch(this.prefetch);
-    this.channel.on('close', error => this.emitDisconnected(error));
+  async createChannel(connection: amqp.Connection, options: { prefetch?: number } = {}) {
+    const { prefetch = this.prefetch } = options;
+    const channel = await connection.createConfirmChannel();
+    channel.prefetch(prefetch);
+    channel.on('close', error => this.emitDisconnected(error));
     if (this.replyPattern) {
-      await createReplyQueue(this.channel);
+      await createReplyQueue(channel);
     }
     if (this.scheduledPublish) {
-      await createDelayQueueReply(this.channel, this.updateName('delay'));
+      await createDelayQueueReply(channel, this.updateName('delay'));
     }
-    this.emit('connected');
-    this.connecting = false;
+    return channel;
   }
 
   private updateName(name, prefix = this.prefix) {
@@ -92,12 +88,13 @@ export default class Rabbit extends EventEmitter {
 
   async createQueue(
     name: string,
-    options: amqp.Options.AssertQueue & { prefix?: string } = {},
+    options: amqp.Options.AssertQueue & { prefix?: string; prefetch?: number } = {},
     handler?: (msg: any, ack: (error?, reply?) => any) => any
   ) {
     name = this.updateName(name, options.prefix);
     await this.connected;
-    const queue = new Queue(this.channel, name, options);
+    const channel = await this.createChannel(this.connection, { prefetch: options.prefetch });
+    const queue = new Queue(channel, name, options);
     this.queues[name] = queue;
     await queue.created;
     logger.debug(`created queue ${name}`);
@@ -110,7 +107,7 @@ export default class Rabbit extends EventEmitter {
   async destroyQueue(name: string, prefix?: string) {
     name = this.updateName(name, prefix);
     await this.connected;
-    await Queue.destroy(this.channel, name);
+    await Queue.destroy(this.defaultChannel, name);
   }
 
   async subscribe(name, handler: (msg: any, ack: (reply) => any) => any, prefix?: string) {
@@ -128,7 +125,7 @@ export default class Rabbit extends EventEmitter {
   async publish(name: string, obj, headers?: amqp.Options.Publish, prefix?: string) {
     name = this.updateName(name, prefix);
     await this.connected;
-    await Queue.publish(obj, headers, this.channel, name, this.queues[name]);
+    await Queue.publish(obj, headers, this.defaultChannel, name, this.queues[name]);
   }
 
   async publishWithDelay(name: string, obj, properties?: amqp.Options.Publish, prefix?: string) {
@@ -137,13 +134,13 @@ export default class Rabbit extends EventEmitter {
     }
     name = this.updateName(name, prefix);
     await this.connected;
-    await publishWithDelay(this.updateName('delay'), obj, properties, this.channel, name);
+    await publishWithDelay(this.updateName('delay'), obj, properties, this.defaultChannel, name);
   }
 
   async getReply(name: string, obj, properties: amqp.Options.Publish, prefix?: string, timeout?: number) {
     name = this.updateName(name, prefix);
     await this.connected;
-    return await Queue.getReply(obj, properties, this.channel, name, this.queues[name], timeout);
+    return await Queue.getReply(obj, properties, this.defaultChannel, name, this.queues[name], timeout);
   }
 
   async getTopicReply(
@@ -155,31 +152,31 @@ export default class Rabbit extends EventEmitter {
   ) {
     topicName = this.updateName(topicName, prefix);
     await this.connected;
-    return await Exchange.getReply(this.channel, 'amq.topic', topicName, content, properties, timeout);
+    return await Exchange.getReply(this.defaultChannel, 'amq.topic', topicName, content, properties, timeout);
   }
 
   async publishExchange(exchange: string, routingKey: string, content, headers: amqp.Options.Publish, prefix?: string) {
     routingKey = this.updateName(routingKey, prefix);
     await this.connected;
-    await Exchange.publish(this.channel, exchange, routingKey, content, headers);
+    await Exchange.publish(this.defaultChannel, exchange, routingKey, content, headers);
   }
 
   async publishTopic(topicName: string, content, headers: amqp.Options.Publish = {}, prefix?: string) {
     topicName = this.updateName(topicName, prefix);
     await this.connected;
-    await Exchange.publish(this.channel, 'amq.topic', topicName, content, headers);
+    await Exchange.publish(this.defaultChannel, 'amq.topic', topicName, content, headers);
   }
 
   async bindToExchange(queueName: string, exchange: string, routingKey: string, prefix?: string) {
     queueName = this.updateName(queueName, prefix);
     await this.connected;
-    await Queue.bindToExchange(exchange, routingKey, this.channel, queueName, this.queues[queueName]);
+    await Queue.bindToExchange(exchange, routingKey, this.defaultChannel, queueName, this.queues[queueName]);
   }
 
   async unbindFromExchange(queueName: string, exchange, topicName, prefix?: string) {
     queueName = this.updateName(queueName, prefix);
     await this.connected;
-    await Queue.unbindFromExchange(exchange, topicName, this.channel, queueName, this.queues[queueName]);
+    await Queue.unbindFromExchange(exchange, topicName, this.defaultChannel, queueName, this.queues[queueName]);
   }
 
   async bindToTopic(queueName: string, topicName: string, prefix?: string) {
