@@ -116,7 +116,7 @@ describe('Test Queue class', function() {
   });
 
   it('should publish to queue with getReply but get reply after queue acknowledment', async function() {
-    const spy = sandbox.spy(rabbit.channel, 'sendToQueue');
+    const spy = sandbox.spy(rabbit.publishChannel, 'sendToQueue');
     const content = { content: true };
     const headers = {
       headers: { test: 1 },
@@ -128,7 +128,7 @@ describe('Test Queue class', function() {
     const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
     await queue.subscribe((msg, ack) => ack(null, Queue.STOP_PROPAGATION));
     setTimeout(() => rabbit.publish(rabbit.channel.replyName, 'new_result', headers, ''), 10);
-    const result = await Queue.getReply(content, headers, rabbit.channel, this.name, queue);
+    const result = await Queue.getReply(content, headers, rabbit.publishChannel, this.name, queue);
     result.should.equal('new_result');
     spy.calledTwice.should.be.true();
     spy.args[0].slice(0, 3).should.eql([this.name, Buffer.from(JSON.stringify(content)), headers]);
