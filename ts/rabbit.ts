@@ -96,6 +96,7 @@ export default class Rabbit extends EventEmitter {
     options: amqp.Options.AssertQueue & { prefix?: string; prefetch? } = {},
     handler?: (msg: any, ack: (error?, reply?) => any) => any
   ) {
+    options.prefetch = options.prefetch || this.prefetch;
     name = this.updateName(name, options.prefix);
     await this.connected;
     const queue = new Queue(this.channel, name, options);
@@ -108,10 +109,10 @@ export default class Rabbit extends EventEmitter {
       do {
         localPrefetch = this.changingPrefetch;
         await this.changingPrefetch;
-      // More than one queues might be waiting. Only one can pass this check.
+        // More than one queues might be waiting. Only one can pass this check.
       } while (this.changingPrefetch !== localPrefetch);
 
-      if (options.prefetch && this.prefetch !== options.prefetch) {
+      if (this.prefetch !== options.prefetch) {
         this.prefetch = options.prefetch;
         this.changingPrefetch = Promise.resolve(this.channel.prefetch(options.prefetch)).then(() =>
           queue.subscribe(handler)
