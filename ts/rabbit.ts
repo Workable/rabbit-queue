@@ -109,7 +109,7 @@ export default class Rabbit extends EventEmitter {
       do {
         localPrefetch = this.changingPrefetch;
         await this.changingPrefetch;
-        // More than one queues might be waiting. Only one can pass this check.
+        // More than one queues might be waiting to be created. Only one can pass this check.
       } while (this.changingPrefetch !== localPrefetch);
 
       if (this.prefetch !== options.prefetch) {
