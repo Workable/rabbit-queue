@@ -46,6 +46,13 @@ describe('Test baseQueueHandler', function() {
     handle.args[0][0].correlationId.should.equal('3');
   });
 
+  it('should pass options to createQueue', async function() {
+    const stub = sandbox.spy(rabbit, 'createQueue');
+    const handler = new DemoHandler(this.name, rabbit, { prefetch: 10 });
+    await handler.created;
+    stub.args.should.containDeep([['test.queue', { prefetch: 10 }]]);
+  });
+
   it('should mess context', async function() {
     const handler = new DemoHandler(this.name, rabbit, {});
     const handle = (handler.handle = function({ event }) {
