@@ -184,78 +184,72 @@ rabbit
 ### Example with Stream rpc (works if both consumer and producer use rabbit-queue)
 
 ```javascript
-    const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
-    class DemoHandler extends BaseQueueHandler {
-      handle({ msg, event, correlationId, startTime }) {
-        const stream = new Readable({ read() {} });
-        stream.push('streaming');
-        stream.push('events');
-        stream.push(null); //the end
-        return stream;
-      }
-    }
+const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
+class DemoHandler extends BaseQueueHandler {
+  handle({ msg, event, correlationId, startTime }) {
+    const stream = new Readable({ read() {} });
+    stream.push('streaming');
+    stream.push('events');
+    stream.push(null); //the end
+    return stream;
+  }
+}
 
-    new DemoHandler('demoQueue', rabbit, {
-      retries: 3,
-      retryDelay: 1,
-      logEnabled: true
-    });
+new DemoHandler('demoQueue', rabbit, {
+  retries: 3,
+  retryDelay: 1,
+  logEnabled: true
+});
 
-    const reply = await rabbit.getReply('demoQueue', { test: 'data' }, { correlationId: '5' });
-    for await (const chunk of reply) {
-      console.log(`Received chunk: ${chunk.toString()}`);
-    }
+const reply = await rabbit.getReply('demoQueue', { test: 'data' }, { correlationId: '5' });
+for await (const chunk of reply) {
+  console.log(`Received chunk: ${chunk.toString()}`);
+}
 ```
 
 ### Logging
 
-Rabbit-queue uses log4js-api so you need to install log4js for logging to work.
+Rabbit-queue logs to console by default.
+It also emits events for each log so that you can use your own logger
 
-Creations of queues, bindings are logged in debug level.
-Message enqueues, dequeues are logged in info level.
-Errors in BaseQueueHandler are logged in error level. (You can add your own error logging logic in afterDlq method.)
-
-Using log4js v2 and custom appenders like [log4js_honeybadger_appender](https://www.npmjs.com/package/log4js_honeybadger_appender) you can directly log rabbit-queue errors directly to honeybadger.
-
-log4js configuration example
+eg:
 
 ```javascript
-log4js.configure({
-  appenders: {
-    out: { type: 'stdout', layout: { type: 'basic' } }
-  },
-  honeybadger: { type: 'log4js_honeybadger_appender' },
-  categories: {
-    default: { appenders: ['out'], level: 'info' },
-    'rabbit-queue': { appenders: ['out', 'honeybadger'], level: 'debug' }
-  }
-});
+rabbit.on('log', (component, level, ...args) => console.log(`[${level}] ${component}`, ...args));
 ```
 
 ### Changelog
+
+### v4.x.x to v5.x.x
+
+- Support for Node LTS v6 and v8 was dropped. You should use Node v10 and higher.
+- Two connections are created by default to rabbitMQ. One for consuming and one for producing messages.
+- Dependency to log4js was dropped. Console is used by default but you can easily plug your own logger.
 
 ### New in v4.7.x
 
 When declaring queues with handlers you can define a prefetch count different from the global one
 
 ```js
-rabbit
-  .createQueue('queueName', { durable: false, prefetch: 100 }, (msg, ack) => {
-    console.log(msg.content.toString());
-    ack(null, 'response');
-  });
+rabbit.createQueue('queueName', { durable: false, prefetch: 100 }, (msg, ack) => {
+  console.log(msg.content.toString());
+  ack(null, 'response');
+});
 
-// or 
+// or
 
 class DemoHandler extends BaseQueueHandler {
   // ...
 }
 
-new DemoHandler('demoQueue', rabbit, { prefetch: 100 }) 
+new DemoHandler('demoQueue', rabbit, { prefetch: 100 });
 ```
 
 Note that the prefetch value is set to RabbitMQ and if you have other ways of creating consumers eg. by calling queue.subscribe directly you might end up with consumers being created with different prefetch from the global.
 The two ways mentioned above are handled by rabbit-queue and they are **synchronized** so that no other queue consumer might be affected.
+
+Also note that if you use rabbit prior to 3.3.0 the behavior might be different.
+See https://www.rabbitmq.com/consumer-prefetch.html for more details
 
 ### v4.2.x to > v4.4.x
 
@@ -264,12 +258,16 @@ RPC stream enhancement: When backpressure is enabled, the consumer can stop comm
 eg:
 
 ```js
-const reply = await rabbit.getReply('demoQueue', { test: 'data' }, { headers: { test: 1, backpressure: true }, correlationId: '1' });
+const reply = await rabbit.getReply(
+  'demoQueue',
+  { test: 'data' },
+  { headers: { test: 1, backpressure: true }, correlationId: '1' }
+);
 for await (const chunk of reply) {
-    console.log(`Received chunk: ${chunk.toString()}`);
-    if ("sufficient_data_received") {
-        reply.emit(Queue.STOP_STREAM);
-    }
+  console.log(`Received chunk: ${chunk.toString()}`);
+  if ('sufficient_data_received') {
+    reply.emit(Queue.STOP_STREAM);
+  }
 }
 ```
 
@@ -290,7 +288,7 @@ await rabbit.getReply(
 );
 ```
 
-If used the rpc that responds to this request will stop sending messages until the receiving stream has consumed those messages or has buffered them (By default nodejs stream buffer for json streams is 16 objects). If this does not happen within the timeout the process will stop. 
+If used the rpc that responds to this request will stop sending messages until the receiving stream has consumed those messages or has buffered them (By default nodejs stream buffer for json streams is 16 objects). If this does not happen within the timeout the process will stop.
 
 Use this feature only if both requesting and receiving part have rabbit-queue > 4.2.0
 

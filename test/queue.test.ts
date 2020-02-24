@@ -4,7 +4,7 @@ import * as assert from 'assert';
 import * as sinon from 'sinon';
 import Queue from '../ts/queue';
 import { Readable } from 'stream';
-const sandbox = sinon.sandbox.create();
+const sandbox = sinon.createSandbox();
 
 describe('Test Queue class', function() {
   let rabbit: Rabbit;
@@ -12,6 +12,7 @@ describe('Test Queue class', function() {
     this.url = process.env.RABBIT_URL || 'amqp://localhost';
     this.name = 'test.queue';
     rabbit = new Rabbit(this.url, {});
+    rabbit.on('log', () => {});
     await rabbit.connected;
   });
 
@@ -477,7 +478,7 @@ describe('Test Queue class', function() {
       [
         rabbit.consumeChannel.replyName,
         Buffer.from(JSON.stringify(Queue.STOP_STREAM_MESSAGE)),
-        { ...replyHeaders, correlationId: '1.1' },
+        { ...replyHeaders, correlationId: '1.1' }
       ]
     ]);
     spy.args[0][3].should.be.Function();

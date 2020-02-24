@@ -6,13 +6,12 @@ import { Channel } from './channel';
 import Queue from './queue';
 import Exchange from './exchange';
 import * as assert from 'assert';
-import * as log4js from '@log4js-node/log4js-api';
-
-const logger = log4js.getLogger('rabbit-queue');
+import getLogger from './logger';
 
 export default class Rabbit extends EventEmitter {
   static STOP_PROPAGATION = Queue.STOP_PROPAGATION;
   static STOP_STREAM = Queue.STOP_STREAM;
+  static INSTANCE: Rabbit;
   public consumeConnection: amqp.Connection;
   public publishConnection: amqp.Connection;
   public consumeChannel: Channel;
@@ -26,12 +25,17 @@ export default class Rabbit extends EventEmitter {
   public prefix: string;
   public scheduledPublish: boolean;
   public socketOptions;
+  public logger: ReturnType<typeof getLogger>;
 
   constructor(
     public url: string,
     { prefetch = 1, replyPattern = true, prefix = '', scheduledPublish = false, socketOptions = {} } = {}
   ) {
     super();
+    if (!Rabbit.INSTANCE) {
+      Rabbit.INSTANCE = this;
+    }
+    this.logger = getLogger('rabbit-queue');
     assert(url, 'Url is required!');
     this.prefetch = prefetch;
     this.replyPattern = replyPattern;
@@ -106,7 +110,7 @@ export default class Rabbit extends EventEmitter {
     const queue = new Queue(this.consumeChannel, name, options);
     this.queues[name] = queue;
     await queue.created;
-    logger.debug(`created queue ${name}`);
+    this.logger.debug(`created queue ${name}`);
     if (handler) {
       // Handle race condition. Another queue might be created at the same time with diferrent prefetch.
       let localLock;

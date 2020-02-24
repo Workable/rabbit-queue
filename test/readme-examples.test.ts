@@ -5,11 +5,19 @@ import * as sinon from 'sinon';
 import Exchange from '../ts/exchange';
 import Rabbit from '../ts/rabbit';
 import BaseQueueHandler from '../ts/base-queue-handler';
-import * as log4js from '@log4js-node/log4js-api';
 import { Readable } from 'stream';
+const sandbox = sinon.createSandbox();
 
 describe('Test Readme examples', function() {
   let rabbit: Rabbit;
+  before(function() {
+    sandbox.stub(console, 'error');
+    sandbox.stub(console, 'log');
+  });
+
+  after(function() {
+    sandbox.restore();
+  });
 
   afterEach(async function() {
     await rabbit.destroyQueue('queueName');

@@ -3,11 +3,11 @@ import * as amqp from 'amqplib';
 import * as assert from 'assert';
 import * as uuid from 'uuid';
 import Queue from './queue';
-import * as log4js from '@log4js-node/log4js-api';
 import { Readable } from 'stream';
 import { decode, encode } from './encode-decode';
+import getLogger from './logger';
 
-const logger = log4js.getLogger('rabbit-queue');
+const logger = getLogger('rabbit-queue');
 let replyHandlers = {};
 let streamHandlers = {};
 let stopped = {};

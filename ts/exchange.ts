@@ -2,11 +2,11 @@ import * as amqp from 'amqplib';
 import { Channel } from './channel';
 import { raceUntil } from 'race-until';
 import { getReply } from './reply-queue';
-import * as log4js from '@log4js-node/log4js-api';
 import { encode } from './encode-decode';
 import * as uuid from 'uuid';
+import getLogger from './logger';
 
-const logger = log4js.getLogger('rabbit-queue');
+const logger = getLogger('rabbit-queue');
 export default {
   defaultHeaders: {
     persistent: true

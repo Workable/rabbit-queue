@@ -3,7 +3,7 @@ import * as assert from 'assert';
 import * as sinon from 'sinon';
 import Rabbit from '../ts/rabbit';
 import BaseQueueHandler from '../ts/base-queue-handler';
-const sandbox = sinon.sandbox.create();
+const sandbox = sinon.createSandbox();
 
 describe('Test baseQueueHandler', function() {
   let rabbit: Rabbit;
@@ -24,6 +24,7 @@ describe('Test baseQueueHandler', function() {
     this.name = 'test.queue';
     rabbit = new Rabbit(this.url, {});
     await rabbit.connected;
+    rabbit.on('log', () => {});
   });
 
   after(async function() {
