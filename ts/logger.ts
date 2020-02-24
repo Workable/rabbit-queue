@@ -3,7 +3,7 @@ export default function getLogger(component) {
     // There was no way to move this to top due to cyclic dependencies.
     const rabbit = (await import('./rabbit')).default;
     if (rabbit.INSTANCE && rabbit.INSTANCE.listenerCount('log') > 0) {
-      return void rabbit.INSTANCE.emit('log', level, ...args);
+      return void rabbit.INSTANCE.emit('log', component, level, ...args);
     }
     console.log(`[${level}] ${component}`, ...args);
   };
