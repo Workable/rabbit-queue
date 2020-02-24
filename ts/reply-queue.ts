@@ -34,7 +34,7 @@ export function getReply(content: any, properties: amqp.Options.Publish = {}, ch
       {
         persistent: false,
         correlationId,
-        replyTo: channel.replyName,
+        replyTo: options.channel.replyName,
         contentType: 'application/json'
       },
       properties
@@ -117,15 +117,17 @@ function handleStreamReply(msg: amqp.Message, id: string) {
   };
 
   if (stopped[id]) {
-    options.channel.sendToQueue(msg.properties.replyTo, Buffer.from(JSON.stringify(Queue.STOP_STREAM_MESSAGE)), properties);
+    options.channel.sendToQueue(
+      msg.properties.replyTo,
+      Buffer.from(JSON.stringify(Queue.STOP_STREAM_MESSAGE)),
+      properties
+    );
     streamHandler.push(null);
     delete options[id];
     delete stopped[id];
     delete streamHandlers[id];
     logger.info(
-      `[${correlationId}] <- Returning (stop event received) the end of stream reply ${
-        msg.content.byteLength
-      } bytes`
+      `[${correlationId}] <- Returning (stop event received) the end of stream reply ${msg.content.byteLength} bytes`
     );
     return;
   }

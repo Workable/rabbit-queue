@@ -16,11 +16,11 @@ describe('Test Queue class', function() {
   });
 
   beforeEach(function() {
-    this.spyAssert = sandbox.spy(rabbit.channel, 'assertQueue');
-    this.spyConsume = sandbox.spy(rabbit.channel, 'consume');
-    this.spyCancel = sandbox.spy(rabbit.channel, 'cancel');
-    this.spyDeleteQueue = sandbox.spy(rabbit.channel, 'deleteQueue');
-    this.spyPurgeQueue = sandbox.spy(rabbit.channel, 'purgeQueue');
+    this.spyAssert = sandbox.spy(rabbit.consumeChannel, 'assertQueue');
+    this.spyConsume = sandbox.spy(rabbit.consumeChannel, 'consume');
+    this.spyCancel = sandbox.spy(rabbit.consumeChannel, 'cancel');
+    this.spyDeleteQueue = sandbox.spy(rabbit.consumeChannel, 'deleteQueue');
+    this.spyPurgeQueue = sandbox.spy(rabbit.consumeChannel, 'purgeQueue');
   });
 
   afterEach(async function() {
@@ -33,7 +33,7 @@ describe('Test Queue class', function() {
   });
 
   it('should create Queue', async function() {
-    const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
+    const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true });
     await queue.created;
     this.spyAssert.calledOnce.should.be.true();
     this.spyAssert
@@ -51,7 +51,7 @@ describe('Test Queue class', function() {
   });
 
   it('should create queue and add handler to it', async function() {
-    const queue = new Queue(rabbit.channel, this.name, { exclusive: true, noAck: true });
+    const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true, noAck: true });
     await queue.created;
     const handler = msg => console.log(msg);
     await queue.subscribe(handler);
@@ -63,7 +63,7 @@ describe('Test Queue class', function() {
   });
 
   it('should create queue and add handler and unsubscribe', async function() {
-    const queue = new Queue(rabbit.channel, this.name, { exclusive: true, noAck: true });
+    const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true, noAck: true });
     await queue.created;
     const handler = msg => console.log(msg);
     await queue.subscribe(handler);
@@ -72,15 +72,15 @@ describe('Test Queue class', function() {
   });
 
   it('should destroy queue', async function() {
-    const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
+    const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true });
     await queue.created;
-    await Queue.destroy(rabbit.channel, this.name);
+    await Queue.destroy(rabbit.consumeChannel, this.name);
     this.spyDeleteQueue.calledOnce.should.be.true();
     this.spyDeleteQueue.calledWith(this.name).should.be.true();
   });
 
   it('should purge queue', async function() {
-    const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
+    const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true });
     await queue.created;
     await queue.purge();
     this.spyPurgeQueue.calledOnce.should.be.true();
@@ -88,84 +88,84 @@ describe('Test Queue class', function() {
   });
 
   it('should publish to queue', async function() {
-    const spy = sandbox.spy(rabbit.channel, 'sendToQueue');
+    const spy = sandbox.spy(rabbit.consumeChannel, 'sendToQueue');
     const content = { content: true };
     const headers = { headers: { test: 1 }, correlationId: '1', persistent: false };
-    const queue = new Queue(rabbit.channel, this.name, { exclusive: true, priority: 10 });
-    await Queue.publish(content, headers, rabbit.channel, this.name, queue);
+    const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true, priority: 10 });
+    await Queue.publish(content, headers, rabbit.consumeChannel, this.name, queue);
     spy.calledOnce.should.be.true();
     spy.args[0].slice(0, 3).should.eql([this.name, Buffer.from(JSON.stringify(content)), headers]);
   });
 
   it('should publish to queue with getReply', async function() {
-    const spy = sandbox.spy(rabbit.channel, 'sendToQueue');
+    const spy = sandbox.spy(rabbit.consumeChannel, 'sendToQueue');
     const content = { content: true };
     const headers = {
       headers: { test: 1 },
       correlationId: '1',
       persistent: false,
-      replyTo: rabbit.channel.replyName,
+      replyTo: rabbit.consumeChannel.replyName,
       contentType: 'application/json'
     };
-    const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
+    const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true });
     await queue.subscribe((msg, ack) => ack(null, 'result'));
-    const result = await Queue.getReply(content, headers, rabbit.channel, this.name, queue);
+    const result = await Queue.getReply(content, headers, rabbit.consumeChannel, this.name, queue);
     result.should.equal('result');
     spy.calledTwice.should.be.true();
     spy.args[0].slice(0, 3).should.eql([this.name, Buffer.from(JSON.stringify(content)), headers]);
   });
 
   it('should publish to queue with getReply but get reply after queue acknowledment', async function() {
-    const spy = sandbox.spy(rabbit.channel, 'sendToQueue');
+    const spy = sandbox.spy(rabbit.publishChannel, 'sendToQueue');
     const content = { content: true };
     const headers = {
       headers: { test: 1 },
       correlationId: '1',
       persistent: false,
-      replyTo: rabbit.channel.replyName,
+      replyTo: rabbit.consumeChannel.replyName,
       contentType: 'application/json'
     };
-    const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
+    const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true });
     await queue.subscribe((msg, ack) => ack(null, Queue.STOP_PROPAGATION));
-    setTimeout(() => rabbit.publish(rabbit.channel.replyName, 'new_result', headers, ''), 10);
-    const result = await Queue.getReply(content, headers, rabbit.channel, this.name, queue);
+    setTimeout(() => rabbit.publish(rabbit.consumeChannel.replyName, 'new_result', headers, ''), 10);
+    const result = await Queue.getReply(content, headers, rabbit.publishChannel, this.name, queue);
     result.should.equal('new_result');
     spy.calledTwice.should.be.true();
     spy.args[0].slice(0, 3).should.eql([this.name, Buffer.from(JSON.stringify(content)), headers]);
   });
 
   it('should publish to queue with getReply and timeout', async function() {
-    const spy = sandbox.spy(rabbit.channel, 'sendToQueue');
+    const spy = sandbox.spy(rabbit.consumeChannel, 'sendToQueue');
     const content = { content: true };
     const headers = {
       headers: { test: 1 },
       correlationId: '1',
       persistent: false,
-      replyTo: rabbit.channel.replyName,
+      replyTo: rabbit.consumeChannel.replyName,
       contentType: 'application/json'
     };
-    const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
+    const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true });
     await queue.subscribe((msg, ack) => setTimeout(() => ack(null, 'result'), 1));
-    const result = await Queue.getReply(content, headers, rabbit.channel, this.name, queue, 10);
+    const result = await Queue.getReply(content, headers, rabbit.consumeChannel, this.name, queue, 10);
     result.should.equal('result');
     spy.calledTwice.should.be.true();
     spy.args[0].slice(0, 3).should.eql([this.name, Buffer.from(JSON.stringify(content)), headers]);
   });
 
   it('should publish to queue with getReply and reply with error', async function() {
-    const spy = sandbox.spy(rabbit.channel, 'sendToQueue');
+    const spy = sandbox.spy(rabbit.consumeChannel, 'sendToQueue');
     const content = { content: true };
     const headers = {
       headers: { test: 1 },
       correlationId: '1',
       persistent: false,
-      replyTo: rabbit.channel.replyName,
+      replyTo: rabbit.consumeChannel.replyName,
       contentType: 'application/json'
     };
-    const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
+    const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true });
     await queue.subscribe((msg, ack) => setTimeout(() => ack('error'), 1));
     try {
-      await Queue.getReply(content, headers, rabbit.channel, this.name, queue, 10);
+      await Queue.getReply(content, headers, rabbit.consumeChannel, this.name, queue, 10);
       assert(false);
     } catch (error) {
       error.should.eql(new Error('error'));
@@ -175,19 +175,19 @@ describe('Test Queue class', function() {
   });
 
   it('should publish to queue with getReply and timeout and fail', async function() {
-    const spy = sandbox.spy(rabbit.channel, 'sendToQueue');
+    const spy = sandbox.spy(rabbit.consumeChannel, 'sendToQueue');
     const content = { content: true };
     const headers = {
       headers: { test: 1 },
       correlationId: '1',
       persistent: false,
-      replyTo: rabbit.channel.replyName,
+      replyTo: rabbit.consumeChannel.replyName,
       contentType: 'application/json'
     };
-    const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
+    const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true });
     await queue.subscribe((msg, ack) => setTimeout(() => ack(null, 'result'), 10));
     try {
-      await Queue.getReply(content, headers, rabbit.channel, this.name, queue, 1);
+      await Queue.getReply(content, headers, rabbit.consumeChannel, this.name, queue, 1);
       assert(false);
     } catch (error) {
       error.should.eql(new Error('Timed out'));
@@ -199,20 +199,20 @@ describe('Test Queue class', function() {
 
   it('should getReply as a stream', async function() {
     if (process.env.SKIP_STREAM) return;
-    const spy = sandbox.spy(rabbit.channel, 'sendToQueue');
+    const spy = sandbox.spy(rabbit.consumeChannel, 'sendToQueue');
     const content = { content: true };
     const headers = {
       headers: { test: 1, backpressure: true },
       correlationId: '1',
       persistent: false,
-      replyTo: rabbit.channel.replyName,
+      replyTo: rabbit.consumeChannel.replyName,
       contentType: 'application/json'
     };
-    const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
+    const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true });
     const stream = new Readable({ objectMode: true, read() {} });
     await queue.subscribe((msg, ack) => ack(null, stream));
     stream.push('AB');
-    const result = await Queue.getReply(content, headers, rabbit.channel, this.name, queue);
+    const result = await Queue.getReply(content, headers, rabbit.consumeChannel, this.name, queue);
     stream.push('BC');
     stream.push(null);
     result.constructor.should.equal(Readable);
@@ -235,21 +235,21 @@ describe('Test Queue class', function() {
     spy.args.should.eql([
       [this.name, Buffer.from(JSON.stringify(content)), headers, spy.args[0][3]],
       [
-        rabbit.channel.replyName,
+        rabbit.consumeChannel.replyName,
         Buffer.from(JSON.stringify('AB')),
         { ...streamHeaders, correlationId: '1.0' },
         spy.args[1][3]
       ],
-      [rabbit.channel.replyName, Buffer.from(JSON.stringify(null)), { ...replyHeaders, correlationId: '1.0' }],
+      [rabbit.consumeChannel.replyName, Buffer.from(JSON.stringify(null)), { ...replyHeaders, correlationId: '1.0' }],
       [
-        rabbit.channel.replyName,
+        rabbit.consumeChannel.replyName,
         Buffer.from(JSON.stringify('BC')),
         { ...streamHeaders, correlationId: '1.1' },
         spy.args[3][3]
       ],
-      [rabbit.channel.replyName, Buffer.from(JSON.stringify(null)), { ...replyHeaders, correlationId: '1.1' }],
+      [rabbit.consumeChannel.replyName, Buffer.from(JSON.stringify(null)), { ...replyHeaders, correlationId: '1.1' }],
       [
-        rabbit.channel.replyName,
+        rabbit.consumeChannel.replyName,
         Buffer.from(JSON.stringify(null)),
         { correlationId: '1.1', contentType: 'application/json', headers: { isStream: true, correlationId: '1' } },
         spy.args[5][3]
@@ -262,15 +262,15 @@ describe('Test Queue class', function() {
   it('should getReply as a stream and use backpressure', async function() {
     if (process.env.SKIP_STREAM) return;
     const content = { content: true };
-    const spy = sandbox.spy(rabbit.channel, 'sendToQueue');
+    const spy = sandbox.spy(rabbit.consumeChannel, 'sendToQueue');
     const headers = {
       headers: { test: 1, backpressure: true },
       correlationId: '1',
       persistent: false,
-      replyTo: rabbit.channel.replyName,
+      replyTo: rabbit.consumeChannel.replyName,
       contentType: 'application/json'
     };
-    const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
+    const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true });
     const stream = new Readable({ objectMode: true, read() {} });
     await queue.subscribe((msg, ack) => ack(null, stream));
     stream.push({ a: 1 });
@@ -278,7 +278,7 @@ describe('Test Queue class', function() {
       stream.push({ a: i });
     }
     stream.push(null);
-    const result = await Queue.getReply(content, headers, rabbit.channel, this.name, queue);
+    const result = await Queue.getReply(content, headers, rabbit.consumeChannel, this.name, queue);
     result.constructor.should.equal(Readable);
     await new Promise(r => setTimeout(r, 100));
     const chunks = [];
@@ -289,37 +289,37 @@ describe('Test Queue class', function() {
 
     const args1_15 = [];
     for (let i = 1; i < 16; i++) {
-      args1_15.push([rabbit.channel.replyName, { a: i }], [rabbit.channel.replyName, null]);
+      args1_15.push([rabbit.consumeChannel.replyName, { a: i }], [rabbit.consumeChannel.replyName, null]);
     }
     spy.args
       .map(args => [args[0], JSON.parse(args[1].toString())])
       .should.eql([
         [this.name, content],
         ...args1_15,
-        [rabbit.channel.replyName, { a: 16 }],
-        [rabbit.channel.replyName, { backpressure: true }],
-        [rabbit.channel.replyName, { a: 17 }],
-        [rabbit.channel.replyName, null],
-        [rabbit.channel.replyName, null]
+        [rabbit.consumeChannel.replyName, { a: 16 }],
+        [rabbit.consumeChannel.replyName, { backpressure: true }],
+        [rabbit.consumeChannel.replyName, { a: 17 }],
+        [rabbit.consumeChannel.replyName, null],
+        [rabbit.consumeChannel.replyName, null]
       ]);
   });
 
   it('should getReply as a stream of Objects and handle error', async function() {
     if (process.env.SKIP_STREAM) return;
-    const spy = sandbox.spy(rabbit.channel, 'sendToQueue');
+    const spy = sandbox.spy(rabbit.consumeChannel, 'sendToQueue');
     const content = { content: true };
     const headers = {
       headers: { test: 1 },
       correlationId: '1',
       persistent: false,
-      replyTo: rabbit.channel.replyName,
+      replyTo: rabbit.consumeChannel.replyName,
       contentType: 'application/json'
     };
-    const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
+    const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true });
     const stream = new Readable({ objectMode: true, read() {} });
     await queue.subscribe((msg, ack) => ack(null, stream));
     stream.push('AB');
-    const result = await Queue.getReply(content, headers, rabbit.channel, this.name, queue);
+    const result = await Queue.getReply(content, headers, rabbit.consumeChannel, this.name, queue);
     stream.push('BC');
     stream.emit('error', new Error('test-error'));
     result.constructor.should.equal(Readable);
@@ -340,9 +340,9 @@ describe('Test Queue class', function() {
 
     spy.args.should.eql([
       [this.name, Buffer.from(JSON.stringify(content)), headers, spy.args[0][3]],
-      [rabbit.channel.replyName, Buffer.from(JSON.stringify('AB')), { ...streamHeaders, correlationId: '1.0' }],
+      [rabbit.consumeChannel.replyName, Buffer.from(JSON.stringify('AB')), { ...streamHeaders, correlationId: '1.0' }],
       [
-        rabbit.channel.replyName,
+        rabbit.consumeChannel.replyName,
         Buffer.from(JSON.stringify({ error: true, error_code: 999, error_message: 'test-error' })),
         { ...streamHeaders, correlationId: '1.0' },
         spy.args[2][3]
@@ -352,20 +352,20 @@ describe('Test Queue class', function() {
 
   it('should getReply as a stream of Buffers and handle error', async function() {
     if (process.env.SKIP_STREAM) return;
-    const spy = sandbox.spy(rabbit.channel, 'sendToQueue');
+    const spy = sandbox.spy(rabbit.consumeChannel, 'sendToQueue');
     const content = { content: true };
     const properties = {
       headers: { test: 1, backpressure: true },
       correlationId: '1',
       persistent: false,
-      replyTo: rabbit.channel.replyName,
+      replyTo: rabbit.consumeChannel.replyName,
       contentType: 'application/json'
     };
-    const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
+    const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true });
     const stream = new Readable({ read() {} });
     await queue.subscribe((msg, ack) => ack(null, stream));
     stream.push('AB');
-    const result = await Queue.getReply(content, properties, rabbit.channel, this.name, queue);
+    const result = await Queue.getReply(content, properties, rabbit.consumeChannel, this.name, queue);
     stream.push('BC');
     stream.emit('error', new Error('test-error'));
     result.constructor.should.equal(Readable);
@@ -392,14 +392,14 @@ describe('Test Queue class', function() {
     spy.args.should.eql([
       [this.name, Buffer.from(JSON.stringify(content)), properties, spy.args[0][3]],
       [
-        rabbit.channel.replyName,
+        rabbit.consumeChannel.replyName,
         Buffer.from(JSON.stringify('AB')),
         { ...streamHeaders, correlationId: '1.0' },
         spy.args[1][3]
       ],
-      [rabbit.channel.replyName, Buffer.from(JSON.stringify(null)), { ...replyHeaders, correlationId: '1.0' }],
+      [rabbit.consumeChannel.replyName, Buffer.from(JSON.stringify(null)), { ...replyHeaders, correlationId: '1.0' }],
       [
-        rabbit.channel.replyName,
+        rabbit.consumeChannel.replyName,
         Buffer.from(JSON.stringify({ error: true, error_code: 999, error_message: 'test-error' })),
         { correlationId: '1.0', contentType: 'application/json', headers: { isStream: true, correlationId: '1' } },
         spy.args[3][3]
@@ -408,35 +408,35 @@ describe('Test Queue class', function() {
   });
 
   it('should bind to exchange', async function() {
-    const spy = sandbox.spy(rabbit.channel, 'bindQueue');
-    const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
-    await Queue.bindToExchange('amq.topic', this.name, rabbit.channel, this.name, queue);
+    const spy = sandbox.spy(rabbit.consumeChannel, 'bindQueue');
+    const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true });
+    await Queue.bindToExchange('amq.topic', this.name, rabbit.consumeChannel, this.name, queue);
     spy.calledWith(this.name, 'amq.topic', this.name);
   });
 
   it('should unbind to exchange', async function() {
-    const spy = sandbox.spy(rabbit.channel, 'unbindQueue');
-    const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
-    await Queue.unbindFromExchange('amq.topic', this.name, rabbit.channel, this.name, queue);
+    const spy = sandbox.spy(rabbit.consumeChannel, 'unbindQueue');
+    const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true });
+    await Queue.unbindFromExchange('amq.topic', this.name, rabbit.consumeChannel, this.name, queue);
     spy.calledWith(this.name, 'amq.topic', this.name);
   });
 
   it('should getReply as a stream and stop on demand', async function() {
     if (process.env.SKIP_STREAM) return;
-    const spy = sandbox.spy(rabbit.channel, 'sendToQueue');
+    const spy = sandbox.spy(rabbit.consumeChannel, 'sendToQueue');
     const content = { content: true };
     const headers = {
       headers: { test: 1, backpressure: true },
       correlationId: '1',
       persistent: false,
-      replyTo: rabbit.channel.replyName,
+      replyTo: rabbit.consumeChannel.replyName,
       contentType: 'application/json'
     };
-    const queue = new Queue(rabbit.channel, this.name, { exclusive: true });
+    const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true });
     const stream = new Readable({ objectMode: true, read() {} });
     await queue.subscribe((msg, ack) => ack(null, stream));
     stream.push('AB');
-    const result = await Queue.getReply(content, headers, rabbit.channel, this.name, queue);
+    const result = await Queue.getReply(content, headers, rabbit.consumeChannel, this.name, queue);
     result.emit(Queue.STOP_STREAM);
     stream.push('BC');
     stream.push('CD');
@@ -462,20 +462,20 @@ describe('Test Queue class', function() {
     spy.args.should.eql([
       [this.name, Buffer.from(JSON.stringify(content)), headers, spy.args[0][3]],
       [
-        rabbit.channel.replyName,
+        rabbit.consumeChannel.replyName,
         Buffer.from(JSON.stringify('AB')),
         { ...streamHeaders, correlationId: '1.0' },
         spy.args[1][3]
       ],
-      [rabbit.channel.replyName, Buffer.from(JSON.stringify(null)), { ...replyHeaders, correlationId: '1.0' }],
+      [rabbit.consumeChannel.replyName, Buffer.from(JSON.stringify(null)), { ...replyHeaders, correlationId: '1.0' }],
       [
-        rabbit.channel.replyName,
+        rabbit.consumeChannel.replyName,
         Buffer.from(JSON.stringify('BC')),
         { ...streamHeaders, correlationId: '1.1' },
         spy.args[3][3]
       ],
       [
-        rabbit.channel.replyName,
+        rabbit.consumeChannel.replyName,
         Buffer.from(JSON.stringify(Queue.STOP_STREAM_MESSAGE)),
         { ...replyHeaders, correlationId: '1.1' },
       ]

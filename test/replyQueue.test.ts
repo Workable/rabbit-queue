@@ -26,18 +26,18 @@ describe('Test ReplyQueue', function() {
   it('should createReplyQueue', async function() {
     rabbit = new Rabbit(this.url);
     await rabbit.connected;
-    const stub = sandbox.stub(rabbit.channel, 'consume');
-    await ReplyQueue.createReplyQueue(rabbit.channel);
+    const stub = sandbox.stub(rabbit.consumeChannel, 'consume');
+    await ReplyQueue.createReplyQueue(rabbit.consumeChannel);
     stub.calledOnce.should.be.true();
-    stub.args[0][0].should.eql(rabbit.channel.replyName);
+    stub.args[0][0].should.eql(rabbit.consumeChannel.replyName);
     stub.args[0][2].should.eql({ noAck: true });
   });
 
   it('should call Handler on message', async function() {
     rabbit = new Rabbit(this.url);
     await rabbit.connected;
-    const stub = sandbox.stub(rabbit.channel, 'consume');
-    await ReplyQueue.createReplyQueue(rabbit.channel);
+    const stub = sandbox.stub(rabbit.consumeChannel, 'consume');
+    await ReplyQueue.createReplyQueue(rabbit.consumeChannel);
     const handler = (err, body) => {
       body.should.equal('test_body');
     };
@@ -48,8 +48,8 @@ describe('Test ReplyQueue', function() {
   it('should call Handler on message and fail', async function() {
     rabbit = new Rabbit(this.url);
     await rabbit.connected;
-    const stub = sandbox.stub(rabbit.channel, 'consume');
-    await ReplyQueue.createReplyQueue(rabbit.channel);
+    const stub = sandbox.stub(rabbit.consumeChannel, 'consume');
+    await ReplyQueue.createReplyQueue(rabbit.consumeChannel);
     const handler = (err, body) => {
       err.should.eql(new Error());
     };
@@ -63,8 +63,8 @@ describe('Test ReplyQueue', function() {
   it('should call Handler on message with null message and succeed', async function() {
     rabbit = new Rabbit(this.url);
     await rabbit.connected;
-    const stub = sandbox.stub(rabbit.channel, 'consume');
-    await ReplyQueue.createReplyQueue(rabbit.channel);
+    const stub = sandbox.stub(rabbit.consumeChannel, 'consume');
+    await ReplyQueue.createReplyQueue(rabbit.consumeChannel);
     const handler = (err, body) => {
       assert(body === null);
     };
@@ -76,9 +76,9 @@ describe('Test ReplyQueue', function() {
     rabbit = new Rabbit(this.url);
     await rabbit.connected;
     if (process.env.SKIP_STREAM) return;
-    const stub = sandbox.stub(rabbit.channel, 'consume');
-    const stubSendToQueue = sandbox.stub(rabbit.channel, 'sendToQueue');
-    await ReplyQueue.createReplyQueue(rabbit.channel);
+    const stub = sandbox.stub(rabbit.consumeChannel, 'consume');
+    const stubSendToQueue = sandbox.stub(rabbit.consumeChannel, 'sendToQueue');
+    await ReplyQueue.createReplyQueue(rabbit.consumeChannel);
     let handler;
     let promise = new Promise((resolve, reject) => {
       handler = async (err, body) => {
@@ -115,9 +115,9 @@ describe('Test ReplyQueue', function() {
     rabbit = new Rabbit(this.url);
     await rabbit.connected;
     if (process.env.SKIP_STREAM) return;
-    const stub = sandbox.stub(rabbit.channel, 'consume');
-    const stubSendToQueue = sandbox.stub(rabbit.channel, 'sendToQueue');
-    await ReplyQueue.createReplyQueue(rabbit.channel);
+    const stub = sandbox.stub(rabbit.consumeChannel, 'consume');
+    const stubSendToQueue = sandbox.stub(rabbit.consumeChannel, 'sendToQueue');
+    await ReplyQueue.createReplyQueue(rabbit.consumeChannel);
     let handler;
     let promise = new Promise((resolve, reject) => {
       handler = async (err, body) => {
@@ -157,8 +157,8 @@ describe('Test ReplyQueue', function() {
     rabbit = new Rabbit(this.url);
     await rabbit.connected;
     if (process.env.SKIP_STREAM) return;
-    const stub = sandbox.stub(rabbit.channel, 'consume');
-    await ReplyQueue.createReplyQueue(rabbit.channel);
+    const stub = sandbox.stub(rabbit.consumeChannel, 'consume');
+    await ReplyQueue.createReplyQueue(rabbit.consumeChannel);
     let handler = () => {};
     ReplyQueue.addHandler(2, handler);
     stub.callArgWith(1, {
@@ -176,8 +176,8 @@ describe('Test ReplyQueue', function() {
     rabbit = new Rabbit(this.url);
     await rabbit.connected;
     if (process.env.SKIP_STREAM) return;
-    const stub = sandbox.stub(rabbit.channel, 'consume');
-    await ReplyQueue.createReplyQueue(rabbit.channel);
+    const stub = sandbox.stub(rabbit.consumeChannel, 'consume');
+    await ReplyQueue.createReplyQueue(rabbit.consumeChannel);
     let handler;
     let promise = new Promise((resolve, reject) => {
       handler = async (err, body) => {
@@ -215,8 +215,8 @@ describe('Test ReplyQueue', function() {
     rabbit = new Rabbit(this.url);
     await rabbit.connected;
     if (process.env.SKIP_STREAM) return;
-    const stub = sandbox.stub(rabbit.channel, 'consume');
-    await ReplyQueue.createReplyQueue(rabbit.channel);
+    const stub = sandbox.stub(rabbit.consumeChannel, 'consume');
+    await ReplyQueue.createReplyQueue(rabbit.consumeChannel);
     let handler;
     let promise = new Promise((resolve, reject) => {
       handler = async (err, body) => {

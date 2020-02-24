@@ -57,17 +57,20 @@ describe('Test rabbit class', function() {
     rabbit = new Rabbit(this.url, { socketOptions: 'socketOptions' });
     (<any>rabbit).connect();
     await rabbit.connected;
-    connectStub.args.should.eql([[this.url, 'socketOptions']]);
+    connectStub.args.should.eql([
+      [this.url, 'socketOptions'],
+      [this.url, 'socketOptions']
+    ]);
   });
 
   it('should call connect only once', async function() {
-    const spy = sandbox.spy(Rabbit.prototype, 'createChannel');
-    const stub = sandbox.stub(ReplyQueue, 'createReplyQueue');
+    const createChannelSpy = sandbox.spy(Rabbit.prototype, 'createChannel');
+    const createReplyQueueStub = sandbox.stub(ReplyQueue, 'createReplyQueue');
     rabbit = new Rabbit(this.url);
     (<any>rabbit).connect();
     await rabbit.connected;
-    spy.calledOnce.should.be.true();
-    stub.called.should.be.true();
+    createChannelSpy.args.should.eql([[rabbit.consumeConnection], [rabbit.publishConnection]]);
+    createReplyQueueStub.called.should.be.true();
   });
 
   it('should not call createReplyQueue', async function() {
@@ -102,7 +105,7 @@ describe('Test rabbit class', function() {
     const stub = sandbox.stub(Queue.prototype, 'subscribe');
     rabbit = new Rabbit(this.url);
     await rabbit.connected;
-    const spy = sandbox.spy(rabbit.channel, 'prefetch');
+    const spy = sandbox.spy(rabbit.consumeChannel, 'prefetch');
     const handler = () => ({});
     let promises = [];
     promises.push(rabbit.createQueue(this.name, { exclusive: true, prefetch: 20 }, handler));
@@ -123,13 +126,12 @@ describe('Test rabbit class', function() {
   });
 
   it('should publish to queue by adding prefix_', async function() {
-    const stub = sandbox.stub(Queue, 'publish');
+    const publishStub = sandbox.stub(Queue, 'publish');
     rabbit = new Rabbit(this.url, { prefix: 'test' });
     const content = { content: true };
     const headers = { headers: { test: 1 } };
     await rabbit.publish(`test_${this.name}`, content, headers);
-    stub.calledOnce.should.be.true();
-    stub.calledWith(content, headers, rabbit.channel, `test_${this.name}`, undefined).should.be.true();
+    publishStub.args.should.eql([[content, headers, rabbit.publishChannel, `test_${this.name}`, undefined]]);
   });
 
   it('should publish to queue by adding only prefix when name starts with .', async function() {
@@ -139,7 +141,7 @@ describe('Test rabbit class', function() {
     const headers = { headers: { test: 1 } };
     await rabbit.publish(this.name3, content, headers);
     stub.calledOnce.should.be.true();
-    stub.calledWith(content, headers, rabbit.channel, `test${this.name3}`, undefined).should.be.true();
+    stub.calledWith(content, headers, rabbit.publishChannel, `test${this.name3}`, undefined).should.be.true();
   });
 
   it('should publish to queue with Delay', async function() {
@@ -149,7 +151,7 @@ describe('Test rabbit class', function() {
     const headers = { headers: { test: 1 } };
     await rabbit.publishWithDelay(`test_${this.name}`, content, headers);
     stub.calledOnce.should.be.true();
-    stub.args.should.eql([['test_delay', content, headers, rabbit.channel, `test_${this.name}`]]);
+    stub.args.should.eql([['test_delay', content, headers, rabbit.consumeChannel, `test_${this.name}`]]);
   });
 
   it('should publish to queue with getReply', async function() {
@@ -161,7 +163,7 @@ describe('Test rabbit class', function() {
     const reply = await rabbit.getReply(`test_${this.name}`, content, headers);
     reply.should.equal('reply');
     stub.calledOnce.should.be.true();
-    stub.calledWith(content, headers, rabbit.channel, `test_${this.name}`, undefined).should.be.true();
+    stub.calledWith(content, headers, rabbit.publishChannel, `test_${this.name}`, undefined).should.be.true();
   });
 
   it('should publish to topic with getReply', async function() {
@@ -173,7 +175,7 @@ describe('Test rabbit class', function() {
     const reply = await rabbit.getTopicReply(`test_${this.name}`, content, headers);
     reply.should.equal('reply');
     stub.calledOnce.should.be.true();
-    stub.calledWith(rabbit.channel, 'amq.topic', `test_${this.name}`, content, headers, undefined).should.be.true();
+    stub.calledWith(rabbit.publishChannel, 'amq.topic', `test_${this.name}`, content, headers, undefined).should.be.true();
   });
 
   it('should publish to exchange', async function() {
@@ -183,7 +185,7 @@ describe('Test rabbit class', function() {
     const headers = { headers: { test: 1 } };
     await rabbit.publishExchange('amq.topic', 'testKey', content, headers);
     stub.calledOnce.should.be.true();
-    stub.calledWith(rabbit.channel, 'amq.topic', 'testKey', content, headers).should.be.true();
+    stub.calledWith(rabbit.publishChannel, 'amq.topic', 'testKey', content, headers).should.be.true();
   });
 
   it('should publish to topic', async function() {
@@ -193,41 +195,41 @@ describe('Test rabbit class', function() {
     const headers = { headers: { test: 1 } };
     await rabbit.publishTopic('testKey', content, headers);
     stub.calledOnce.should.be.true();
-    stub.calledWith(rabbit.channel, 'amq.topic', 'testKey', content, headers).should.be.true();
+    stub.calledWith(rabbit.publishChannel, 'amq.topic', 'testKey', content, headers).should.be.true();
   });
 
   it('should bind to exchange', async function() {
     const stub = sandbox.stub(Queue, 'bindToExchange');
     rabbit = new Rabbit(this.url);
     await rabbit.bindToExchange(this.name, 'amq.topic', 'key');
-    stub.calledWith('amq.topic', 'key', rabbit.channel, this.name, undefined).should.be.true();
+    stub.calledWith('amq.topic', 'key', rabbit.consumeChannel, this.name, undefined).should.be.true();
   });
 
   it('should bind to topic', async function() {
     const stub = sandbox.stub(Queue, 'bindToExchange');
     rabbit = new Rabbit(this.url);
     await rabbit.bindToTopic(this.name, 'key');
-    stub.calledWith('amq.topic', 'key', rabbit.channel, this.name, undefined).should.be.true();
+    stub.calledWith('amq.topic', 'key', rabbit.consumeChannel, this.name, undefined).should.be.true();
   });
 
   it('should unbind from exchange', async function() {
     const stub = sandbox.stub(Queue, 'unbindFromExchange');
     rabbit = new Rabbit(this.url);
     await rabbit.unbindFromExchange(this.name, 'amq.topic', 'key');
-    stub.calledWith('amq.topic', 'key', rabbit.channel, this.name, undefined).should.be.true();
+    stub.calledWith('amq.topic', 'key', rabbit.consumeChannel, this.name, undefined).should.be.true();
   });
 
   it('should unbind from topic', async function() {
     const stub = sandbox.stub(Queue, 'unbindFromExchange');
     rabbit = new Rabbit(this.url);
     await rabbit.unbindFromTopic(this.name, 'key');
-    stub.calledWith('amq.topic', 'key', rabbit.channel, this.name, undefined).should.be.true();
+    stub.calledWith('amq.topic', 'key', rabbit.consumeChannel, this.name, undefined).should.be.true();
   });
 
   it('should destroy queue', async function() {
     const stub = sandbox.stub(Queue, 'destroy');
     rabbit = new Rabbit(this.url, { prefix: 'test' });
     await rabbit.destroyQueue(this.name);
-    stub.calledWith(rabbit.channel, `test_${this.name}`).should.be.true();
+    stub.calledWith(rabbit.consumeChannel, `test_${this.name}`).should.be.true();
   });
 });
