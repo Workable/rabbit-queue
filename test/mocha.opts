@@ -1,4 +1,0 @@
---require ./test/env.ts
---require ts-node/register
---full-trace
-test/**/*.ts
