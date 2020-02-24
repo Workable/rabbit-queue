@@ -1,14 +1,14 @@
 import Rabbit from './rabbit';
 import * as amqp from 'amqplib';
-import * as log4js from '@log4js-node/log4js-api';
 import { decode } from './encode-decode';
 import Queue from './queue';
+import getLogger from './logger';
 
 abstract class BaseQueueHandler {
   public dlqName: string;
   public retries: number;
   public retryDelay: number;
-  public logger;
+  public logger: ReturnType<typeof getLogger>;
   public queue: Queue;
   public dlq: Queue;
   public logEnabled: boolean;
@@ -33,7 +33,7 @@ abstract class BaseQueueHandler {
       prefetch = rabbit.prefetch
     } = {}
   ) {
-    const logger = log4js.getLogger(`rabbit-queue.${queueName}`);
+    const logger = getLogger(`rabbit-queue.${queueName}`);
 
     this.prefetch = prefetch;
     this.retries = retries;

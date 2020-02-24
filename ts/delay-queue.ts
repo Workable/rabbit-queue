@@ -1,10 +1,10 @@
 import { Channel } from './channel';
 import * as amqp from 'amqplib';
 import Queue from './queue';
-import * as log4js from '@log4js-node/log4js-api';
 import { decode } from './encode-decode';
+import getLogger from './logger';
 
-const logger = log4js.getLogger('rabbit-queue');
+const logger = getLogger('rabbit-queue');
 let delayedQueue: { [key: string]: Queue } = {};
 let delayedQueueReply: Queue;
 let delayedQueueNameReply: string;
