@@ -98,6 +98,22 @@ describe('Test rabbit class', function() {
     stub.calledWith(handler).should.be.true();
   });
 
+  it('should createQueue and change prefetch', async function() {
+    const stub = sandbox.stub(Queue.prototype, 'subscribe');
+    rabbit = new Rabbit(this.url);
+    await rabbit.connected;
+    const spy = sandbox.spy(rabbit.channel, 'prefetch');
+    const handler = () => ({});
+    let promises = [];
+    promises.push(rabbit.createQueue(this.name, { exclusive: true, prefetch: 20 }, handler));
+    promises.push(rabbit.createQueue(this.name2, { exclusive: true, prefetch: 15 }, handler));
+    promises.push(rabbit.createQueue(this.name3, { exclusive: true, prefetch: 10 }, handler));
+    await Promise.all(promises);
+    spy.args.should.eql([[20], [15], [10]]);
+    rabbit.queues[this.name].name.should.equal(this.name);
+    stub.calledWith(handler).should.be.true();
+  });
+
   it('should unsubscribe', async function() {
     const stub = sandbox.stub(Queue.prototype, 'unsubscribe');
     rabbit = new Rabbit(this.url);

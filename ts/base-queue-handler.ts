@@ -2,14 +2,19 @@ import Rabbit from './rabbit';
 import * as amqp from 'amqplib';
 import * as log4js from '@log4js-node/log4js-api';
 import { decode } from './encode-decode';
+import Queue from './queue';
 
 abstract class BaseQueueHandler {
   public dlqName: string;
   public retries: number;
   public retryDelay: number;
   public logger;
+  public queue: Queue;
+  public dlq: Queue;
   public logEnabled: boolean;
+  public created: Promise<void>;
   public scope: 'SINGLETON' | 'PROTOTYPE';
+  public prefetch?: number;
 
   static SCOPES: { singleton: 'SINGLETON'; prototype: 'PROTOTYPE' } = {
     singleton: 'SINGLETON',
@@ -24,11 +29,13 @@ abstract class BaseQueueHandler {
       retryDelay = 1000,
       logEnabled = true,
       scope = <'SINGLETON' | 'PROTOTYPE'>BaseQueueHandler.SCOPES.singleton,
-      createAndSubscribeToQueue = true
+      createAndSubscribeToQueue = true,
+      prefetch = rabbit.prefetch
     } = {}
   ) {
     const logger = log4js.getLogger(`rabbit-queue.${queueName}`);
 
+    this.prefetch = prefetch;
     this.retries = retries;
     this.retryDelay = retryDelay;
     this.logger = logger;
@@ -36,7 +43,7 @@ abstract class BaseQueueHandler {
     this.scope = scope;
     this.dlqName = this.getDlq();
     if (createAndSubscribeToQueue) {
-      this.createQueues();
+      this.created = this.createQueues();
     }
   }
 
@@ -62,9 +69,9 @@ abstract class BaseQueueHandler {
     return instance;
   }
 
-  createQueues() {
-    this.rabbit
-      .createQueue(this.queueName, this.getQueueOptions(), (msg, ack) => {
+  async createQueues() {
+    this.queue = await this.rabbit
+      .createQueue(this.queueName, { ...this.getQueueOptions(), prefetch: this.prefetch }, (msg, ack) => {
         if (this.scope === BaseQueueHandler.SCOPES.singleton) {
           this.tryHandle(0, msg, ack).catch(e => this.logger.error(e));
         } else {
@@ -81,7 +88,9 @@ abstract class BaseQueueHandler {
       })
       .catch(error => this.logger.error(error));
 
-    this.rabbit.createQueue(this.dlqName, this.getDlqOptions()).catch(error => this.logger.error(error));
+    this.dlq = await this.rabbit
+      .createQueue(this.dlqName, this.getDlqOptions())
+      .catch(error => this.logger.error(error));
   }
 
   async tryHandle(retries, msg: amqp.Message, ack: (error, reply) => any) {
