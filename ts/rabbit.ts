@@ -16,7 +16,7 @@ export default class Rabbit extends EventEmitter {
   public connection: amqp.Connection;
   public channel: Channel;
   public connected: Promise<any>;
-  public changingPrefetch: Promise<void>;
+  public lock: Promise<void>;
   public queues: { [s: string]: Queue } = {};
   public connecting = false;
   public prefetch: number;
@@ -105,21 +105,22 @@ export default class Rabbit extends EventEmitter {
     logger.debug(`created queue ${name}`);
     if (handler) {
       // Handle race condition. Another queue might be created at the same time with diferrent prefetch.
-      let localPrefetch;
+      let localLock;
       do {
-        localPrefetch = this.changingPrefetch;
-        await this.changingPrefetch;
+        localLock = this.lock;
+        await this.lock;
         // More than one queues might be waiting to be created. Only one can pass this check.
-      } while (this.changingPrefetch !== localPrefetch);
+      } while (this.lock !== localLock);
 
       if (this.prefetch !== options.prefetch) {
         this.prefetch = options.prefetch;
-        this.changingPrefetch = Promise.resolve(this.channel.prefetch(options.prefetch)).then(() =>
+        this.lock = Promise.resolve(this.channel.prefetch(options.prefetch)).then(() =>
           queue.subscribe(handler)
         );
-        await this.changingPrefetch;
+        await this.lock;
       } else {
-        await queue.subscribe(handler);
+        this.lock = queue.subscribe(handler);
+        await this.lock;
       }
     }
     return queue;
