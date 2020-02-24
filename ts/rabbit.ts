@@ -13,9 +13,9 @@ const logger = log4js.getLogger('rabbit-queue');
 export default class Rabbit extends EventEmitter {
   static STOP_PROPAGATION = Queue.STOP_PROPAGATION;
   static STOP_STREAM = Queue.STOP_STREAM;
-  public connection: amqp.Connection;
+  public consumeConnection: amqp.Connection;
   public publishConnection: amqp.Connection;
-  public channel: Channel;
+  public consumeChannel: Channel;
   public publishChannel: Channel;
   public connected: Promise<any>;
   public lock: Promise<void>;
@@ -46,9 +46,9 @@ export default class Rabbit extends EventEmitter {
       return;
     }
     this.connecting = true;
-    this.connection = await amqp.connect(this.url, this.socketOptions);
-    this.channel = await this.createChannel(this.connection);
-    await this.initChannel(this.channel);
+    this.consumeConnection = await amqp.connect(this.url, this.socketOptions);
+    this.consumeChannel = await this.createChannel(this.consumeConnection);
+    await this.initChannel(this.consumeChannel);
 
     this.publishConnection = await amqp.connect(this.url, this.socketOptions);
     this.publishChannel = await this.createChannel(this.publishConnection);
@@ -77,10 +77,10 @@ export default class Rabbit extends EventEmitter {
     channel.prefetch(this.prefetch);
     channel.on('close', error => this.emitDisconnected(error));
     if (!publish && this.replyPattern) {
-      await createReplyQueue(this.channel);
+      await createReplyQueue(this.consumeChannel);
     }
     if (!publish && this.scheduledPublish) {
-      await createDelayQueueReply(this.channel, this.updateName('delay'));
+      await createDelayQueueReply(this.consumeChannel, this.updateName('delay'));
     }
   }
 
@@ -103,7 +103,7 @@ export default class Rabbit extends EventEmitter {
     options.prefetch = options.prefetch || this.prefetch;
     name = this.updateName(name, options.prefix);
     await this.connected;
-    const queue = new Queue(this.channel, name, options);
+    const queue = new Queue(this.consumeChannel, name, options);
     this.queues[name] = queue;
     await queue.created;
     logger.debug(`created queue ${name}`);
@@ -118,7 +118,7 @@ export default class Rabbit extends EventEmitter {
 
       if (this.prefetch !== options.prefetch) {
         this.prefetch = options.prefetch;
-        this.lock = Promise.resolve(this.channel.prefetch(options.prefetch)).then(() =>
+        this.lock = Promise.resolve(this.consumeChannel.prefetch(options.prefetch)).then(() =>
           queue.subscribe(handler)
         );
         await this.lock;
@@ -133,7 +133,7 @@ export default class Rabbit extends EventEmitter {
   async destroyQueue(name: string, prefix?: string) {
     name = this.updateName(name, prefix);
     await this.connected;
-    await Queue.destroy(this.channel, name);
+    await Queue.destroy(this.consumeChannel, name);
   }
 
   async subscribe(name, handler: (msg: any, ack: (reply) => any) => any, prefix?: string) {
@@ -160,7 +160,7 @@ export default class Rabbit extends EventEmitter {
     }
     name = this.updateName(name, prefix);
     await this.connected;
-    await publishWithDelay(this.updateName('delay'), obj, properties, this.channel, name);
+    await publishWithDelay(this.updateName('delay'), obj, properties, this.consumeChannel, name);
   }
 
   async getReply(name: string, obj, properties: amqp.Options.Publish, prefix?: string, timeout?: number) {
@@ -196,13 +196,13 @@ export default class Rabbit extends EventEmitter {
   async bindToExchange(queueName: string, exchange: string, routingKey: string, prefix?: string) {
     queueName = this.updateName(queueName, prefix);
     await this.connected;
-    await Queue.bindToExchange(exchange, routingKey, this.channel, queueName, this.queues[queueName]);
+    await Queue.bindToExchange(exchange, routingKey, this.consumeChannel, queueName, this.queues[queueName]);
   }
 
   async unbindFromExchange(queueName: string, exchange, topicName, prefix?: string) {
     queueName = this.updateName(queueName, prefix);
     await this.connected;
-    await Queue.unbindFromExchange(exchange, topicName, this.channel, queueName, this.queues[queueName]);
+    await Queue.unbindFromExchange(exchange, topicName, this.consumeChannel, queueName, this.queues[queueName]);
   }
 
   async bindToTopic(queueName: string, topicName: string, prefix?: string) {
@@ -216,7 +216,7 @@ export default class Rabbit extends EventEmitter {
   }
 
   async close() {
-    await this.connection.close();
+    await this.consumeConnection.close();
     await this.publishConnection.close();
   }
 }
