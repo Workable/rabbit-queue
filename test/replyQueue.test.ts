@@ -5,7 +5,7 @@ import * as ReplyQueue from '../ts/reply-queue';
 import Rabbit from '../ts/rabbit';
 import Queue from '../ts/queue';
 import { Readable } from 'stream';
-const sandbox = sinon.sandbox.create();
+const sandbox = sinon.createSandbox();
 import * as should from 'should';
 
 describe('Test ReplyQueue', function() {

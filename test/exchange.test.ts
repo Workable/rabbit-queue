@@ -4,7 +4,7 @@ import * as sinon from 'sinon';
 import Exchange from '../ts/exchange';
 import Rabbit from '../ts/rabbit';
 import Queue from '../ts/queue';
-const sandbox = sinon.sandbox.create();
+const sandbox = sinon.createSandbox();
 
 describe('Test Exchange', function() {
   let rabbit: Rabbit;
@@ -13,6 +13,7 @@ describe('Test Exchange', function() {
     this.name = 'test.queue';
     this.url = process.env.RABBIT_URL || 'amqp://localhost';
     rabbit = new Rabbit(this.url, {});
+    rabbit.on('log', () => {});
     await rabbit.connected;
   });
 

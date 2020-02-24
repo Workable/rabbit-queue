@@ -2,7 +2,7 @@ import * as sinon from 'sinon';
 import * as DelayQueue from '../ts/delay-queue';
 import Rabbit from '../ts/rabbit';
 import * as Queue from '../ts/queue';
-const sandbox = sinon.sandbox.create();
+const sandbox = sinon.createSandbox();
 
 describe('Test DelayQueue', function() {
   let rabbit: Rabbit;

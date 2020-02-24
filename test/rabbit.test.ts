@@ -8,7 +8,7 @@ import * as ReplyQueue from '../ts/reply-queue';
 import * as DelayQueue from '../ts/delay-queue';
 import * as amqp from 'amqplib';
 
-const sandbox = sinon.sandbox.create();
+const sandbox = sinon.createSandbox();
 
 describe('Test rabbit class', function() {
   let rabbit: Rabbit;
