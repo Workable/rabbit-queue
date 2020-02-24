@@ -234,6 +234,29 @@ log4js.configure({
 
 ### Changelog
 
+### New in v4.7.x
+
+When declaring queues with handlers you can define a prefetch count different from the global one
+
+```js
+rabbit
+  .createQueue('queueName', { durable: false, prefetch: 100 }, (msg, ack) => {
+    console.log(msg.content.toString());
+    ack(null, 'response');
+  });
+
+// or 
+
+class DemoHandler extends BaseQueueHandler {
+  // ...
+}
+
+new DemoHandler('demoQueue', rabbit, { prefetch: 100 }) 
+```
+
+Note that the prefetch value is set to RabbitMQ and if you have other ways of creating consumers eg. by calling queue.subscribe directly you might end up with consumers being created with different prefetch from the global.
+The two ways mentioned above are handled by rabbit-queue and they are **synchronized** so that no other queue consumer might be affected.
+
 ### v4.2.x to > v4.4.x
 
 RPC stream enhancement: When backpressure is enabled, the consumer can stop communication, when data received is sufficient
