@@ -73,7 +73,7 @@ abstract class BaseQueueHandler {
     this.queue = await this.rabbit
       .createQueue(this.queueName, { ...this.getQueueOptions(), prefetch: this.prefetch }, (msg, ack) => {
         if (this.scope === BaseQueueHandler.SCOPES.singleton) {
-          this.tryHandle(0, msg, ack).catch(e => this.logger.error(e));
+          this.tryHandle(0, msg, ack).catch((e) => this.logger.error(e));
         } else {
           const instance = new (<any>this.constructor)(this.queueName, this.rabbit, {
             retries: this.retries,
@@ -81,16 +81,16 @@ abstract class BaseQueueHandler {
             logger: this.logger,
             logEnabled: this.logEnabled,
             scope: this.scope,
-            createAndSubscribeToQueue: false
+            createAndSubscribeToQueue: false,
           });
-          instance.tryHandle(0, msg, ack).catch(e => this.logger.error(e));
+          instance.tryHandle(0, msg, ack).catch((e) => this.logger.error(e));
         }
       })
-      .catch(error => this.logger.error(error));
+      .catch((error) => this.logger.error(error));
 
     this.dlq = await this.rabbit
       .createQueue(this.dlqName, this.getDlqOptions())
-      .catch(error => this.logger.error(error));
+      .catch((error) => this.logger.error(error));
   }
 
   async tryHandle(retries, msg: amqp.Message, ack: (error, reply) => any) {
@@ -109,7 +109,7 @@ abstract class BaseQueueHandler {
       }
     } catch (err) {
       this.handleError(err, msg);
-      this.retry(retries, msg, ack).catch(error => this.logger.error(error));
+      this.retry(retries, msg, ack).catch((error) => this.logger.error(error));
     }
   }
 
@@ -119,7 +119,7 @@ abstract class BaseQueueHandler {
       name: err.name && err.name.substr(0, 200),
       message: err.message && err.message.substr(0, 200),
       stack: err.stack && err.stack.substr(0, 200),
-      time: new Date().toString()
+      time: new Date().toString(),
     };
   }
 
@@ -157,7 +157,7 @@ abstract class BaseQueueHandler {
     try {
       const correlationId = this.getCorrelationId(msg);
       const event = decode(msg);
-      this.logger.warn('[%s] Adding to dlq: %s after %s retries', correlationId, this.dlqName, retries);
+      this.logger.warn(`[${correlationId}] Adding to dlq: ${this.dlqName} after ${retries} retries`);
       await this.rabbit.publish(this.dlqName, event, msg.properties);
       const response = await this.afterDlq({ msg, event });
       ack(msg.properties.headers.errors.message, response);
