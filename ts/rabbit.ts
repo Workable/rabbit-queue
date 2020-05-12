@@ -33,7 +33,6 @@ export default class Rabbit extends EventEmitter {
   ) {
     super();
     if (!Rabbit.INSTANCE) {
-      console.log('CREATING NEW INSTANCE');
       Rabbit.INSTANCE = this;
     }
     this.logger = getLogger('rabbit-queue');
