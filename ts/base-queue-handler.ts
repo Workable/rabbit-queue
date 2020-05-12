@@ -18,7 +18,7 @@ abstract class BaseQueueHandler {
 
   static SCOPES: { singleton: 'SINGLETON'; prototype: 'PROTOTYPE' } = {
     singleton: 'SINGLETON',
-    prototype: 'PROTOTYPE'
+    prototype: 'PROTOTYPE',
   };
 
   constructor(
@@ -30,7 +30,7 @@ abstract class BaseQueueHandler {
       logEnabled = true,
       scope = <'SINGLETON' | 'PROTOTYPE'>BaseQueueHandler.SCOPES.singleton,
       createAndSubscribeToQueue = true,
-      prefetch = rabbit.prefetch
+      prefetch = rabbit.prefetch,
     } = {}
   ) {
     const logger = getLogger(`rabbit-queue.${queueName}`);
@@ -98,11 +98,11 @@ abstract class BaseQueueHandler {
       const startTime = this.getTime();
       const event = decode(msg);
       const correlationId = this.getCorrelationId(msg, event);
-      this.logger.debug('[%s] #%s Dequeueing %s ', correlationId, retries + 1, this.queueName);
+      this.logger.debug(`[${correlationId}] #${retries + 1} Dequeueing ${this.queueName} `);
 
       const result = await this.handle({ msg, event, correlationId, startTime });
 
-      this.logger.debug('[%s] #%s Acknowledging %s ', correlationId, retries + 1, this.queueName);
+      this.logger.debug(`[${correlationId}] #${retries + 1} Acknowledging ${this.queueName} `);
       ack(null, result);
       if (this.logEnabled) {
         this.logTime(startTime, correlationId);
