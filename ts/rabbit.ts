@@ -92,7 +92,7 @@ export default class Rabbit extends EventEmitter {
     if (prefix && prefix.length > 0) {
       if (name.startsWith('.')) {
         name = `${prefix}${name}`;
-      } else if (!name.startsWith(`${prefix}_`)) {
+      } else if (!name.startsWith(`${prefix}_`) && !name.startsWith(`${prefix}.`)) {
         name = `${prefix}_${name}`;
       }
     }
