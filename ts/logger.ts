@@ -1,7 +1,7 @@
 export default function getLogger(component) {
-  const logger = (level) => async (...args) => {
+  const logger = (level) => (...args) => {
     // There was no way to move this to top due to cyclic dependencies.
-    const rabbit = (await import('./rabbit')).default;
+    const rabbit = require('./rabbit').default;
     if (rabbit.INSTANCE && rabbit.INSTANCE.listenerCount('log') > 0) {
       return void rabbit.INSTANCE.emit('log', component, level, ...args);
     }
