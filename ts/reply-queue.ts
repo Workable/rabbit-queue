@@ -58,7 +58,7 @@ function onReply(msg: amqp.Message) {
   }
   delete replyHandlers[id];
 
-  logger.info(`[${id}] <- Returning reply ${msg.content.byteLength} bytes`);
+  logger.debug(`[${id}] <- Returning reply ${msg.content.byteLength} bytes`);
   const obj = decode(msg);
   if (obj && obj.error && obj.error_code === Queue.ERROR_DURING_REPLY.error_code) {
     replyHandler(new Error(obj.error_message), null);
@@ -105,7 +105,7 @@ function handleStreamReply(msg: amqp.Message, id: string) {
     delete streamHandlers[id];
     return setImmediate(() => streamHandler.destroy(new Error(obj.error_message)));
   }
-  logger.info(
+  logger.debug(
     `[${correlationId}] <- Returning${(obj === null && ' the end of') || ''} stream reply ${
       msg.content.byteLength
     } bytes`
@@ -126,7 +126,7 @@ function handleStreamReply(msg: amqp.Message, id: string) {
     delete options[id];
     delete stopped[id];
     delete streamHandlers[id];
-    logger.info(
+    logger.debug(
       `[${correlationId}] <- Returning (stop event received) the end of stream reply ${msg.content.byteLength} bytes`
     );
     return;

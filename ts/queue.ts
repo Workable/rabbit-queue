@@ -123,11 +123,11 @@ export default class Queue {
               }
             } else {
               const bufferContent = encode(chunk);
-              logger.info(`[${correlationId}] -> Publishing to queue ${replyTo} ${bufferContent.byteLength} bytes`);
+              logger.debug(`[${correlationId}] -> Publishing to queue ${replyTo} ${bufferContent.byteLength} bytes`);
               this.channel.sendToQueue(replyTo, bufferContent, properties);
             }
           }
-          logger.info(`[${correlationId}] -> Publishing to queue ${replyTo} 4 bytes (null)`);
+          logger.debug(`[${correlationId}] -> Publishing to queue ${replyTo} 4 bytes (null)`);
           this.channel.sendToQueue(replyTo, encode(null), properties, ack);
         } catch (e) {
           logger.error(`[${correlationId}] -> Publishing to queue ${replyTo} error ${e}`);
@@ -140,7 +140,7 @@ export default class Queue {
         }
       } else {
         const bufferContent = encode(reply);
-        logger.info(`[${correlationId}] -> Publishing to queue ${replyTo} ${bufferContent.byteLength} bytes`);
+        logger.debug(`[${correlationId}] -> Publishing to queue ${replyTo} ${bufferContent.byteLength} bytes`);
         this.channel.sendToQueue(replyTo, bufferContent, { correlationId, contentType: 'application/json' }, ack);
       }
     });
@@ -155,7 +155,7 @@ export default class Queue {
 
       properties = Object.assign({ persistent: true, correlationId }, properties);
       const bufferContent = encode(obj, properties.contentType);
-      logger.info(`[${correlationId}] -> Publishing to queue ${name} ${bufferContent.byteLength} bytes`);
+      logger.debug(`[${correlationId}] -> Publishing to queue ${name} ${bufferContent.byteLength} bytes`);
       channel.sendToQueue(name, bufferContent, properties, (err, ok) => (err ? reject(err) : resolve(ok)));
     });
   }
@@ -172,7 +172,7 @@ export default class Queue {
       await queue.created;
     }
     const reply = getReply(obj, properties, channel, (bufferContent, properties, correlationId, cb) => {
-      logger.info(`[${correlationId}] -> Publishing to reply queue ${name} ${bufferContent.byteLength} bytes`);
+      logger.debug(`[${correlationId}] -> Publishing to reply queue ${name} ${bufferContent.byteLength} bytes`);
       channel.sendToQueue(name, bufferContent, properties, cb);
     });
     if (timeout) {
