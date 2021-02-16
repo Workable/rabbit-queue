@@ -17,7 +17,7 @@ export default {
       const correlationId = properties.correlationId || uuid.v4();
       const bufferContent = encode(content, properties.contentType);
       const exchangeHeaders: amqp.Options.Publish = Object.assign({ correlationId }, this.defaultHeaders, properties);
-      logger.info(`[${correlationId}] -> Publishing to ${exchange} ${routingKey} ${bufferContent.byteLength} bytes`);
+      logger.debug(`[${correlationId}] -> Publishing to ${exchange} ${routingKey} ${bufferContent.byteLength} bytes`);
       channel.publish(exchange, routingKey, bufferContent, exchangeHeaders, (err, ok) => {
         err ? reject(err) : resolve(ok);
       });
@@ -33,7 +33,7 @@ export default {
     timeout?: number
   ) {
     const reply = getReply(content, properties, channel, (bufferContent, headers, correlationId, cb) => {
-      logger.info(
+      logger.debug(
         `[${correlationId}] -> Publishing to reply exchange ${exchange}-${routingKey} ${bufferContent.byteLength} bytes`
       );
       channel.publish(exchange, routingKey, bufferContent, headers, cb);
