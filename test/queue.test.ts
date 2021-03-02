@@ -172,7 +172,7 @@ describe('Test Queue class', function() {
       error.should.eql(new Error('error'));
     }
     spy.calledTwice.should.be.true();
-    spy.args[0].slice(0, 3).should.eql([this.name, new Buffer(JSON.stringify(content)), headers]);
+    spy.args[0].slice(0, 3).should.eql([this.name, Buffer.from(JSON.stringify(content)), headers]);
   });
 
   it('should publish to queue with getReply and timeout and fail', async function() {

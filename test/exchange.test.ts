@@ -38,7 +38,7 @@ describe('Test Exchange', function() {
     };
     await Exchange.publish(rabbit.consumeChannel, 'exchange', 'routingKey', content, headers);
     stub.calledOnce.should.be.true();
-    stub.args[0].slice(0, 4).should.eql(['exchange', 'routingKey', new Buffer(JSON.stringify(content)), headers]);
+    stub.args[0].slice(0, 4).should.eql(['exchange', 'routingKey', Buffer.from(JSON.stringify(content)), headers]);
   });
 
   it('should publish to topic with getReply', async function() {
@@ -57,7 +57,7 @@ describe('Test Exchange', function() {
     const result = await Exchange.getReply(rabbit.consumeChannel, 'amq.topic', 'binding', content, headers);
     result.should.equal('result');
     spy.calledTwice.should.be.true();
-    spy.args[0].slice(0, 4).should.eql(['amq.topic', 'binding', new Buffer(JSON.stringify(content)), headers]);
+    spy.args[0].slice(0, 4).should.eql(['amq.topic', 'binding', Buffer.from(JSON.stringify(content)), headers]);
   });
 
   it('should publish to topic with getReply and timeout and fail', async function() {
@@ -81,7 +81,7 @@ describe('Test Exchange', function() {
     }
     spy.calledOnce.should.be.true();
     await new Promise(resolve => setTimeout(resolve, 10));
-    spy.args[0].slice(0, 4).should.eql(['amq.topic', 'binding', new Buffer(JSON.stringify(content)), headers]);
+    spy.args[0].slice(0, 4).should.eql(['amq.topic', 'binding', Buffer.from(JSON.stringify(content)), headers]);
   });
 
   it('should publish to topic with getReply and fail', async function() {
@@ -104,6 +104,6 @@ describe('Test Exchange', function() {
       error.should.eql(new Error('error'));
     }
     spy.calledTwice.should.be.true();
-    spy.args[0].slice(0, 4).should.eql(['amq.topic', 'binding', new Buffer(JSON.stringify(content)), headers]);
+    spy.args[0].slice(0, 4).should.eql(['amq.topic', 'binding', Buffer.from(JSON.stringify(content)), headers]);
   });
 });
