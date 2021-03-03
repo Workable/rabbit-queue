@@ -80,7 +80,7 @@ describe('Test ReplyQueue', function() {
     const stubSendToQueue = sandbox.stub(rabbit.consumeChannel, 'sendToQueue');
     await ReplyQueue.createReplyQueue(rabbit.consumeChannel);
     let handler;
-    let promise = new Promise((resolve, reject) => {
+    let promise = new Promise<void>((resolve, reject) => {
       handler = async (err, body) => {
         try {
           body.should.be.instanceOf(Readable);
@@ -119,7 +119,7 @@ describe('Test ReplyQueue', function() {
     const stubSendToQueue = sandbox.stub(rabbit.consumeChannel, 'sendToQueue');
     await ReplyQueue.createReplyQueue(rabbit.consumeChannel);
     let handler;
-    let promise = new Promise((resolve, reject) => {
+    let promise = new Promise<void>((resolve, reject) => {
       handler = async (err, body) => {
         try {
           body.should.be.instanceOf(Readable);
@@ -179,7 +179,7 @@ describe('Test ReplyQueue', function() {
     const stub = sandbox.stub(rabbit.consumeChannel, 'consume');
     await ReplyQueue.createReplyQueue(rabbit.consumeChannel);
     let handler;
-    let promise = new Promise((resolve, reject) => {
+    let promise = new Promise<void>((resolve, reject) => {
       handler = async (err, body) => {
         try {
           body.should.be.instanceOf(Readable);
@@ -218,7 +218,7 @@ describe('Test ReplyQueue', function() {
     const stub = sandbox.stub(rabbit.consumeChannel, 'consume');
     await ReplyQueue.createReplyQueue(rabbit.consumeChannel);
     let handler;
-    let promise = new Promise((resolve, reject) => {
+    let promise = new Promise<void>((resolve, reject) => {
       handler = async (err, body) => {
         try {
           body.should.be.instanceOf(Readable);
