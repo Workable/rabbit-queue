@@ -66,18 +66,18 @@ rabbit
 
 rabbit
   .getReply('queueName', { test: 'data' }, { correlationId: '1' })
-  .then(reply => console.log('received reply', reply));
+  .then((reply) => console.log('received reply', reply));
 
 rabbit
   .getReply('queueName', { test: 'data' }, { correlationId: '1' }, '', 100)
-  .then(reply => console.log('received reply', reply))
-  .catch(error => console.log('Timed out after 100ms'));
+  .then((reply) => console.log('received reply', reply))
+  .catch((error) => console.log('Timed out after 100ms'));
 
 rabbit.bindToTopic('queueName', 'routingKey');
 rabbit
   .getTopicReply('routingKey', { test: 'data' }, { correlationId: '1' }, '', 100)
-  .then(reply => console.log('received reply', reply))
-  .catch(error => console.log('Timed out after 100ms'));
+  .then((reply) => console.log('received reply', reply))
+  .catch((error) => console.log('Timed out after 100ms'));
 ```
 
 ## Binding to topics
@@ -152,7 +152,7 @@ new DemoHandler('demoQueue', rabbit, {
 
 rabbit
   .getReply('demoQueue', { test: 'data' }, { correlationId: '5' })
-  .then(reply => console.log('received reply', reply));
+  .then((reply) => console.log('received reply', reply));
 ```
 
 ### Example where handle throws an error
@@ -220,6 +220,25 @@ rabbit.on('log', (component, level, ...args) => console.log(`[${level}] ${compon
 
 ### Changelog
 
+### New in v5.4.x
+
+- Support for stream RPC to pass options for the Readable stream created in the caller.
+  e.g.
+
+```js
+const reply = await rabbit.getReply(
+  'demoQueue',
+  { test: 'data' },
+  { headers: { test: 1, backpressure: true, options: { highWaterMark: 1 } }, correlationId: '1' }
+);
+for await (const chunk of reply) {
+  console.log(`Received chunk: ${chunk.toString()}`);
+  if ('sufficient_data_received') {
+    reply.emit(Queue.STOP_STREAM);
+  }
+}
+```
+
 ### v4.x.x to v5.x.x
 
 - Support for Node LTS v6 and v8 was dropped. You should use Node v10 and higher.
@@ -255,7 +274,7 @@ See https://www.rabbitmq.com/consumer-prefetch.html for more details
 
 RPC stream enhancement: When backpressure is enabled, the consumer can stop communication, when data received is sufficient
 
-eg:
+e.g.
 
 ```js
 const reply = await rabbit.getReply(
