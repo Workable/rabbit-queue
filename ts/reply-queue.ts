@@ -35,7 +35,7 @@ export function getReply(content: any, properties: amqp.Options.Publish = {}, ch
         persistent: false,
         correlationId,
         replyTo: options.channel.replyName,
-        contentType: 'application/json',
+        contentType: 'application/json'
       },
       properties
     );
@@ -69,6 +69,7 @@ function onReply(msg: amqp.Message) {
 
 function handleStreamReply(msg: amqp.Message, id: string) {
   const correlationId = msg.properties.correlationId;
+  const streamOptions = msg.properties.headers.options || {};
   const replyHandler = replyHandlers[id];
   let streamHandler = streamHandlers[id];
   let backpressure = false;
@@ -92,6 +93,7 @@ function handleStreamReply(msg: amqp.Message, id: string) {
           delete options[id];
         }
       },
+      ...streamOptions
     });
     streamHandler.on(Queue.STOP_STREAM, () => {
       stopped[id] = true;
@@ -99,6 +101,12 @@ function handleStreamReply(msg: amqp.Message, id: string) {
         const { replyTo, properties } = options[id];
         if (replyTo) options.channel.sendToQueue(msg.properties.replyTo, encode(Queue.STOP_STREAM_MESSAGE), properties);
         delete options[id];
+        streamHandler.push(null);
+        delete stopped[id];
+        delete streamHandlers[id];
+        logger.debug(
+          `[${correlationId}] <- Returning (stop event received) the end of stream reply ${msg.content.byteLength} bytes`
+        );
       }
     });
     streamHandlers[id] = streamHandler;
@@ -118,7 +126,7 @@ function handleStreamReply(msg: amqp.Message, id: string) {
   const properties = {
     correlationId,
     contentType: 'application/json',
-    persistent: false,
+    persistent: false
   };
 
   if (stopped[id]) {

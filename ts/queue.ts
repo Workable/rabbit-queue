@@ -99,7 +99,7 @@ export default class Queue {
         const properties = {
           correlationId,
           contentType: 'application/json',
-          headers: { isStream: true, correlationId }
+          headers: { isStream: true, correlationId, options: msg.properties?.headers?.options }
         };
         try {
           let id = 0;
@@ -118,6 +118,7 @@ export default class Queue {
               if (serviceResponse && serviceResponse.stopStream === Queue.STOP_STREAM_MESSAGE.stopStream) {
                 ack();
                 reply.destroy();
+                console.log('destroyed');
                 logger.info(`[${correlationId}] -> Received stopStream event. Closing connection`);
                 return;
               }
