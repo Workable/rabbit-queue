@@ -14,7 +14,7 @@ let stopped = {};
 let options: { channel: Channel } = { channel: null };
 
 export async function createReplyQueue(channel: Channel) {
-  await channel.assertQueue('', { exclusive: true }).then(replyTo => {
+  await channel.assertQueue('', { exclusive: true }).then((replyTo) => {
     channel.replyName = replyTo.queue;
     options.channel = channel;
     channel.consume(channel.replyName, onReply, { noAck: true });
@@ -35,7 +35,7 @@ export function getReply(content: any, properties: amqp.Options.Publish = {}, ch
         persistent: false,
         correlationId,
         replyTo: options.channel.replyName,
-        contentType: 'application/json'
+        contentType: 'application/json',
       },
       properties
     );
@@ -91,10 +91,15 @@ function handleStreamReply(msg: amqp.Message, id: string) {
           if (replyTo) options.channel.sendToQueue(replyTo, encode({ backpressure: true }), properties);
           delete options[id];
         }
-      }
+      },
     });
     streamHandler.on(Queue.STOP_STREAM, () => {
       stopped[id] = true;
+      if (options[id]) {
+        const { replyTo, properties } = options[id];
+        if (replyTo) options.channel.sendToQueue(msg.properties.replyTo, encode(Queue.STOP_STREAM_MESSAGE), properties);
+        delete options[id];
+      }
     });
     streamHandlers[id] = streamHandler;
     replyHandler(null, streamHandler);
@@ -113,15 +118,11 @@ function handleStreamReply(msg: amqp.Message, id: string) {
   const properties = {
     correlationId,
     contentType: 'application/json',
-    persistent: false
+    persistent: false,
   };
 
   if (stopped[id]) {
-    options.channel.sendToQueue(
-      msg.properties.replyTo,
-      Buffer.from(JSON.stringify(Queue.STOP_STREAM_MESSAGE)),
-      properties
-    );
+    options.channel.sendToQueue(msg.properties.replyTo, encode(Queue.STOP_STREAM_MESSAGE), properties);
     streamHandler.push(null);
     delete options[id];
     delete stopped[id];
