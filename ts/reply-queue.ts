@@ -14,7 +14,7 @@ let stopped = {};
 let options: { channel: Channel } = { channel: null };
 
 export async function createReplyQueue(channel: Channel) {
-  await channel.assertQueue('', { exclusive: true }).then(replyTo => {
+  await channel.assertQueue('', { exclusive: true }).then((replyTo) => {
     channel.replyName = replyTo.queue;
     options.channel = channel;
     channel.consume(channel.replyName, onReply, { noAck: true });
@@ -69,6 +69,7 @@ function onReply(msg: amqp.Message) {
 
 function handleStreamReply(msg: amqp.Message, id: string) {
   const correlationId = msg.properties.correlationId;
+  const streamOptions = msg.properties.headers.options || {};
   const replyHandler = replyHandlers[id];
   let streamHandler = streamHandlers[id];
   let backpressure = false;
@@ -91,10 +92,22 @@ function handleStreamReply(msg: amqp.Message, id: string) {
           if (replyTo) options.channel.sendToQueue(replyTo, encode({ backpressure: true }), properties);
           delete options[id];
         }
-      }
+      },
+      ...streamOptions
     });
     streamHandler.on(Queue.STOP_STREAM, () => {
       stopped[id] = true;
+      if (options[id]) {
+        const { replyTo, properties } = options[id];
+        if (replyTo) options.channel.sendToQueue(msg.properties.replyTo, encode(Queue.STOP_STREAM_MESSAGE), properties);
+        delete options[id];
+        streamHandler.push(null);
+        delete stopped[id];
+        delete streamHandlers[id];
+        logger.debug(
+          `[${correlationId}] <- Returning (stop event received) the end of stream reply ${msg.content.byteLength} bytes`
+        );
+      }
     });
     streamHandlers[id] = streamHandler;
     replyHandler(null, streamHandler);
@@ -117,11 +130,7 @@ function handleStreamReply(msg: amqp.Message, id: string) {
   };
 
   if (stopped[id]) {
-    options.channel.sendToQueue(
-      msg.properties.replyTo,
-      Buffer.from(JSON.stringify(Queue.STOP_STREAM_MESSAGE)),
-      properties
-    );
+    options.channel.sendToQueue(msg.properties.replyTo, encode(Queue.STOP_STREAM_MESSAGE), properties);
     streamHandler.push(null);
     delete options[id];
     delete stopped[id];
