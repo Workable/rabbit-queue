@@ -38,7 +38,7 @@ export default class Queue {
       expires,
       deadLetterExchange,
       deadLetterRoutingKey,
-      maxLength
+      maxLength,
     } = this.options;
     let queueOptions: amqp.Options.AssertQueue = {
       exclusive,
@@ -49,12 +49,11 @@ export default class Queue {
       deadLetterExchange,
       deadLetterRoutingKey,
       maxLength,
-      arguments
+      arguments: this.options.arguments
     };
     if (priority !== undefined) {
       queueOptions.arguments = { ...queueOptions.arguments, 'x-max-priority': priority };
     }
-
     await this.channel.assertQueue(this.name, queueOptions);
   }
 
