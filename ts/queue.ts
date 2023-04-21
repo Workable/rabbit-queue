@@ -49,7 +49,7 @@ export default class Queue {
       deadLetterExchange,
       deadLetterRoutingKey,
       maxLength,
-      arguments: this.options.arguments
+      arguments: { ...this.options.arguments }
     };
     if (priority !== undefined) {
       queueOptions.arguments = { ...queueOptions.arguments, 'x-max-priority': priority };
