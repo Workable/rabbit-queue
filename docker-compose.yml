@@ -1,11 +1,13 @@
-rabbit-queue:
-  image: node:14
-  working_dir: /code
-  volumes:
-    - .:/code
-  links:
-    - rabbit
-  environment:
-    RABBIT_URL: 'amqp://rabbit'
-rabbit:
-  image: rabbitmq
+version: "2.2"
+services:
+  rabbit-queue:
+    image: node:14
+    working_dir: /code
+    volumes:
+      - .:/code
+    links:
+      - rabbit
+    environment:
+      RABBIT_URL: 'amqp://rabbit'
+  rabbit:
+    image: rabbitmq
