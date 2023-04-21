@@ -46,7 +46,8 @@ describe('Test Queue class', function () {
         expires: undefined,
         deadLetterExchange: undefined,
         deadLetterRoutingKey: undefined,
-        maxLength: undefined
+        maxLength: undefined,
+        arguments: undefined
       })
       .should.be.true();
   });

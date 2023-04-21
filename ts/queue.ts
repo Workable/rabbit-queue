@@ -52,10 +52,7 @@ export default class Queue {
       arguments
     };
     if (priority !== undefined) {
-      queueOptions.arguments = { 
-        ...queueOptions.arguments,
-        'x-max-priority': priority 
-      };
+      queueOptions.arguments = { ...queueOptions.arguments, 'x-max-priority': priority };
     }
 
     await this.channel.assertQueue(this.name, queueOptions);
