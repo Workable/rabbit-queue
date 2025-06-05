@@ -217,6 +217,39 @@ eg:
 ```javascript
 rabbit.on('log', (component, level, ...args) => console.log(`[${level}] ${component}`, ...args));
 ```
+const rabbit = new Rabbit('amqp://localhost');
+class DemoHandler extends BaseQueueHandler {
+  handle({ msg, event, correlationId, startTime }) {
+    console.log('Received: ', event);
+    console.log('With correlation id: ' + correlationId);
+  }
+  afterDlq({ msg, event }) {
+    // Something to do after added to dlq
+  }
+}
+
+new DemoHandler('demoQueue', rabbit, {
+  retries: 3,
+  retryDelay: 1000,
+  logEnabled: true, //log queue processing time
+  scope: 'SINGLETON', //can also be 'PROTOTYPE' to create a new instance every time
+  createAndSubscribeToQueue: true, // used internally no need to overwrite
+  migrateQueue: true // if you want to migrate the queue from one configuration to another - otherwise it will throw an error if the queue already exists with different configuration
+});
+
+rabbit.publish('demoQueue', { test: 'data' }, { correlationId: '4' });
+```
+
+
+### Migrating Queues
+
+Rabbit-queue supports migrating queues from one configuration to another.
+RabbitMQ will fail and close the channel if you try to create a queue with the same name but different configuration.
+To migrate a queue, you can use the `migrateQueue` option.
+
+```javascript
+const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
+
 
 ### Changelog
 

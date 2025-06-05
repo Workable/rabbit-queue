@@ -3,9 +3,10 @@ import * as assert from 'assert';
 import * as sinon from 'sinon';
 import Rabbit from '../ts/rabbit';
 import BaseQueueHandler from '../ts/base-queue-handler';
+import { Migrator } from '../ts/migrator';
 const sandbox = sinon.createSandbox();
 
-describe('Test baseQueueHandler', function() {
+describe('Test baseQueueHandler', function () {
   let rabbit: Rabbit;
 
   class DemoHandler extends BaseQueueHandler {
@@ -19,7 +20,7 @@ describe('Test baseQueueHandler', function() {
     }
   }
 
-  before(async function() {
+  before(async function () {
     this.url = process.env.RABBIT_URL || 'amqp://localhost';
     this.name = 'test.queue';
     rabbit = new Rabbit(this.url, {});
@@ -27,17 +28,17 @@ describe('Test baseQueueHandler', function() {
     rabbit.on('log', () => {});
   });
 
-  after(async function() {
+  after(async function () {
     await rabbit.close();
   });
 
-  afterEach(async function() {
+  afterEach(async function () {
     await rabbit.destroyQueue(this.name);
     await rabbit.destroyQueue(this.name + '_dlq');
     sandbox.restore();
   });
 
-  it('should handle message', async function() {
+  it('should handle message', async function () {
     const handler = new DemoHandler(this.name, rabbit, {});
     const handle = (handler.handle = sandbox.stub());
     await rabbit.publish(this.name, { test: 'data' }, { correlationId: '3' });
@@ -47,16 +48,16 @@ describe('Test baseQueueHandler', function() {
     handle.args[0][0].correlationId.should.equal('3');
   });
 
-  it('should pass options to createQueue', async function() {
+  it('should pass options to createQueue', async function () {
     const stub = sandbox.spy(rabbit, 'createQueue');
     const handler = new DemoHandler(this.name, rabbit, { prefetch: 10 });
     await handler.created;
     stub.args.should.containDeep([['test.queue', { prefetch: 10 }]]);
   });
 
-  it('should mess context', async function() {
+  it('should mess context', async function () {
     const handler = new DemoHandler(this.name, rabbit, {});
-    const handle = (handler.handle = function({ event }) {
+    const handle = (handler.handle = function ({ event }) {
       this.context = event.test;
     });
     await rabbit.publish(this.name, { test: 'data' }, { correlationId: '3' });
@@ -66,9 +67,9 @@ describe('Test baseQueueHandler', function() {
     (<any>handler).context.should.equal('data2');
   });
 
-  it('should not mess context', async function() {
+  it('should not mess context', async function () {
     const handle = DemoHandler.prototype.handle;
-    DemoHandler.prototype.handle = function({ event }) {
+    DemoHandler.prototype.handle = function ({ event }) {
       this.context = event;
     };
     const handler = DemoHandler.prototypeFactory(this.name, rabbit, { logger: (<any>global).logger });
@@ -79,7 +80,7 @@ describe('Test baseQueueHandler', function() {
     DemoHandler.prototype.handle = handle;
   });
 
-  it('should add to dlq after x retries', async function() {
+  it('should add to dlq after x retries', async function () {
     sandbox.useFakeTimers();
     const handler = new DemoHandler(this.name, rabbit, {
       retries: 2,
@@ -101,7 +102,7 @@ describe('Test baseQueueHandler', function() {
     afterDlq.calledOnce.should.be.true();
   });
 
-  it('should add to dlq after x retries and get error response', async function() {
+  it('should add to dlq after x retries and get error response', async function () {
     const handler = new DemoHandler(this.name, rabbit, {
       retries: 0,
       retryDelay: 10
@@ -109,7 +110,7 @@ describe('Test baseQueueHandler', function() {
     const handle = (handler.handle = sandbox.spy(() => {
       throw new Error('test error');
     }));
-    handler.afterDlq = function() {
+    handler.afterDlq = function () {
       return 'response';
     };
     try {
@@ -119,7 +120,7 @@ describe('Test baseQueueHandler', function() {
     }
   });
 
-  it('should add to dlq after x retries and get error response - handles stack missing', async function() {
+  it('should add to dlq after x retries and get error response - handles stack missing', async function () {
     const handler = new DemoHandler(this.name, rabbit, {
       retries: 0,
       retryDelay: 10
@@ -127,7 +128,7 @@ describe('Test baseQueueHandler', function() {
     const handle = (handler.handle = sandbox.spy(() => {
       throw { foo: 'banana' };
     }));
-    handler.afterDlq = function() {
+    handler.afterDlq = function () {
       return 'response';
     };
     try {
@@ -137,7 +138,7 @@ describe('Test baseQueueHandler', function() {
     }
   });
 
-  it('should add to dlq after x retries and get no response because afterDlq returns STOP_PROPAGATION', async function() {
+  it('should add to dlq after x retries and get no response because afterDlq returns STOP_PROPAGATION', async function () {
     const handler = new DemoHandler(this.name, rabbit, {
       retries: 0,
       retryDelay: 10
@@ -145,7 +146,7 @@ describe('Test baseQueueHandler', function() {
     const handle = (handler.handle = sandbox.spy(() => {
       throw new Error('test error');
     }));
-    handler.afterDlq = function() {
+    handler.afterDlq = function () {
       return Rabbit.STOP_PROPAGATION;
     };
     try {
@@ -155,7 +156,7 @@ describe('Test baseQueueHandler', function() {
     }
   });
 
-  it('should add to dlq after x retries using prototype scope', async function() {
+  it('should add to dlq after x retries using prototype scope', async function () {
     sandbox.useFakeTimers();
     const handler = DemoHandler.prototypeFactory(this.name, rabbit, {
       retries: 2,
@@ -164,7 +165,7 @@ describe('Test baseQueueHandler', function() {
     });
     const handle = DemoHandler.prototype.handle;
     const originalAfterDlq = DemoHandler.prototype.afterDlq;
-    DemoHandler.prototype.handle = function({ event }) {
+    DemoHandler.prototype.handle = function ({ event }) {
       throw new Error('test error');
     };
 
@@ -182,7 +183,7 @@ describe('Test baseQueueHandler', function() {
     DemoHandler.prototype.afterDlq = originalAfterDlq;
   });
 
-  it('should add string to dlq because afterDlq throws error', async function() {
+  it('should add string to dlq because afterDlq throws error', async function () {
     sandbox.useFakeTimers();
     const handler = new DemoHandler(this.name, rabbit, {
       retries: 2,
@@ -211,7 +212,7 @@ describe('Test baseQueueHandler', function() {
     publish.args[publish.callCount - 1][1].should.eql('{"test":"data"}');
   });
 
-  it('should add to dlq after x retries and get error response even if afterDlq throws error', async function() {
+  it('should add to dlq after x retries and get error response even if afterDlq throws error', async function () {
     const handler = new DemoHandler(this.name, rabbit, {
       retries: 0,
       retryDelay: 10
@@ -219,7 +220,7 @@ describe('Test baseQueueHandler', function() {
     const handle = (handler.handle = sandbox.spy(() => {
       throw new Error('test error');
     }));
-    handler.afterDlq = function() {
+    handler.afterDlq = function () {
       throw new Error('test afterDlq error');
     };
     try {
@@ -227,5 +228,13 @@ describe('Test baseQueueHandler', function() {
     } catch (e) {
       e.should.eql(new Error('test afterDlq error'));
     }
+  });
+
+  it('should call migrator if migrateQueue is true', async function () {
+    const migratorSpy = sandbox.spy(Migrator.prototype, 'tryMigrateQueue');
+    const handler = new DemoHandler(this.name, rabbit, { migrateQueue: true });
+    await handler.created;
+    migratorSpy.args[0][0].should.equal(this.name);
+    migratorSpy.args[1][0].should.equal(this.name + '_dlq');
   });
 });
