@@ -100,7 +100,6 @@ abstract class BaseQueueHandler {
       .catch(error => this.logger.error(error));
 
     if (this.migrateQueue) {
-      await this.rabbit.connected;
       await new Migrator(this.rabbit.consumeConnection).tryMigrateQueue(this.dlqName, this.getDlqOptions());
     }
 
