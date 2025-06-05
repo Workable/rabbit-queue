@@ -3,6 +3,7 @@ import * as amqp from 'amqplib';
 import { decode } from './encode-decode';
 import Queue from './queue';
 import getLogger from './logger';
+import { Migrator } from './migrator';
 
 abstract class BaseQueueHandler {
   public dlqName: string;
@@ -15,14 +16,16 @@ abstract class BaseQueueHandler {
   public created: Promise<void>;
   public scope: 'SINGLETON' | 'PROTOTYPE';
   public prefetch?: number;
+  public options: amqp.Options.AssertQueue & amqp.Options.Consume;
+  public migrateQueue: boolean;
 
   static SCOPES: { singleton: 'SINGLETON'; prototype: 'PROTOTYPE' } = {
     singleton: 'SINGLETON',
-    prototype: 'PROTOTYPE',
+    prototype: 'PROTOTYPE'
   };
 
   constructor(
-    public queueName,
+    public queueName: string,
     public rabbit: Rabbit,
     {
       retries = 3,
@@ -31,6 +34,8 @@ abstract class BaseQueueHandler {
       scope = <'SINGLETON' | 'PROTOTYPE'>BaseQueueHandler.SCOPES.singleton,
       createAndSubscribeToQueue = true,
       prefetch = rabbit.prefetch,
+      migrateQueue = false,
+      options = {} as amqp.Options.AssertQueue
     } = {}
   ) {
     const logger = getLogger(`rabbit-queue.${queueName}`);
@@ -42,6 +47,8 @@ abstract class BaseQueueHandler {
     this.logEnabled = logEnabled;
     this.scope = scope;
     this.dlqName = this.getDlq();
+    this.options = options;
+    this.migrateQueue = migrateQueue;
     if (createAndSubscribeToQueue) {
       this.created = this.createQueues();
     }
@@ -51,29 +58,33 @@ abstract class BaseQueueHandler {
     return this.queueName + '_dlq';
   }
 
-  getCorrelationId(msg: amqp.Message, event?: any) {
+  getCorrelationId(msg: amqp.Message, _event?: any) {
     return msg.properties.correlationId;
   }
 
   getQueueOptions() {
-    return {};
+    return this.options;
   }
 
   getDlqOptions() {
-    return undefined;
+    return this.options;
   }
 
-  static prototypeFactory<T extends BaseQueueHandler>(queueName, rabbit: Rabbit, options = {}): T {
+  static prototypeFactory<T extends BaseQueueHandler>(queueName: string, rabbit: Rabbit, options = {}): T {
     const Constructor = <any>this;
     const instance = new Constructor(queueName, rabbit, { ...options, scope: BaseQueueHandler.SCOPES.prototype });
     return instance;
   }
 
   async createQueues() {
+    if (this.migrateQueue) {
+      await this.rabbit.connected;
+      await new Migrator(this.rabbit.consumeConnection).tryMigrateQueue(this.queueName, this.getQueueOptions());
+    }
     this.queue = await this.rabbit
       .createQueue(this.queueName, { ...this.getQueueOptions(), prefetch: this.prefetch }, (msg, ack) => {
         if (this.scope === BaseQueueHandler.SCOPES.singleton) {
-          this.tryHandle(0, msg, ack).catch((e) => this.logger.error(e));
+          this.tryHandle(0, msg, ack).catch(e => this.logger.error(e));
         } else {
           const instance = new (<any>this.constructor)(this.queueName, this.rabbit, {
             retries: this.retries,
@@ -81,16 +92,21 @@ abstract class BaseQueueHandler {
             logger: this.logger,
             logEnabled: this.logEnabled,
             scope: this.scope,
-            createAndSubscribeToQueue: false,
+            createAndSubscribeToQueue: false
           });
-          instance.tryHandle(0, msg, ack).catch((e) => this.logger.error(e));
+          instance.tryHandle(0, msg, ack).catch(e => this.logger.error(e));
         }
       })
-      .catch((error) => this.logger.error(error));
+      .catch(error => this.logger.error(error));
+
+    if (this.migrateQueue) {
+      await this.rabbit.connected;
+      await new Migrator(this.rabbit.consumeConnection).tryMigrateQueue(this.dlqName, this.getDlqOptions());
+    }
 
     this.dlq = await this.rabbit
       .createQueue(this.dlqName, this.getDlqOptions())
-      .catch((error) => this.logger.error(error));
+      .catch(error => this.logger.error(error));
   }
 
   async tryHandle(retries, msg: amqp.Message, ack: (error, reply) => any) {
@@ -109,7 +125,7 @@ abstract class BaseQueueHandler {
       }
     } catch (err) {
       this.handleError(err, msg);
-      this.retry(retries, msg, ack).catch((error) => this.logger.error(error));
+      this.retry(retries, msg, ack).catch(error => this.logger.error(error));
     }
   }
 
@@ -122,7 +138,7 @@ abstract class BaseQueueHandler {
       name: err.name && err.name.substr(0, 200),
       message: err.message && err.message.substr(0, 200),
       stack: err.stack && err.stack.substr(0, 200),
-      time: new Date().toString(),
+      time: new Date().toString()
     };
   }
 
@@ -153,7 +169,7 @@ abstract class BaseQueueHandler {
   abstract handle(data: { msg: amqp.Message; event: any; correlationId: string; startTime: number });
 
   afterDlq(data: { msg: amqp.Message; event: any }) {
-    this.logger.info(`[${this.getCorrelationId(data.msg)}] Added to dlq`);
+    this.logger.info(`[${this.getCorrelationId(data.msg)}] Running afterDlq`);
   }
 
   async addToDLQ(retries, msg: amqp.Message, ack) {

@@ -12,8 +12,8 @@ export default class Rabbit extends EventEmitter {
   static STOP_PROPAGATION = Queue.STOP_PROPAGATION;
   static STOP_STREAM = Queue.STOP_STREAM;
   static INSTANCE: Rabbit;
-  public consumeConnection: amqp.Connection;
-  public publishConnection: amqp.Connection;
+  public consumeConnection: amqp.ChannelModel;
+  public publishConnection: amqp.ChannelModel;
   public consumeChannel: Channel;
   public publishChannel: Channel;
   public connected: Promise<any>;
@@ -63,7 +63,7 @@ export default class Rabbit extends EventEmitter {
 
   async reconnect() {
     this.connected = this.connect();
-    await this.connected.catch((error) => this.emitDisconnected(error));
+    await this.connected.catch(error => this.emitDisconnected(error));
   }
 
   private emitDisconnected(error) {
@@ -71,15 +71,15 @@ export default class Rabbit extends EventEmitter {
     this.emit('disconnected', error);
   }
 
-  async createChannel(connection: amqp.Connection) {
-    connection.once('close', (error) => this.emitDisconnected(error));
-    connection.on('error', (error) => this.emitDisconnected(error));
+  async createChannel(connection: amqp.ChannelModel) {
+    connection.once('close', error => this.emitDisconnected(error));
+    connection.on('error', error => this.emitDisconnected(error));
     return connection.createConfirmChannel();
   }
 
   async initChannel(channel: Channel, publish = false) {
     channel.prefetch(this.prefetch);
-    channel.on('close', (error) => this.emitDisconnected(error));
+    channel.on('close', error => this.emitDisconnected(error));
     if (!publish && this.replyPattern) {
       await createReplyQueue(this.consumeChannel);
     }
