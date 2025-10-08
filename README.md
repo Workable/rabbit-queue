@@ -215,9 +215,19 @@ It also emits events for each log so that you can use your own logger
 eg:
 
 ```javascript
+const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
 rabbit.on('log', (component, level, ...args) => console.log(`[${level}] ${component}`, ...args));
 ```
-const rabbit = new Rabbit('amqp://localhost');
+
+### Migrating Queues
+
+Rabbit-queue supports migrating queues from one configuration to another.
+RabbitMQ will fail and close the channel if you try to create a queue with the same name but different configuration.
+To migrate a queue, you can use the `migrateQueue` option.
+
+```javascript
+const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
+
 class DemoHandler extends BaseQueueHandler {
   handle({ msg, event, correlationId, startTime }) {
     console.log('Received: ', event);
@@ -239,17 +249,6 @@ new DemoHandler('demoQueue', rabbit, {
 
 rabbit.publish('demoQueue', { test: 'data' }, { correlationId: '4' });
 ```
-
-
-### Migrating Queues
-
-Rabbit-queue supports migrating queues from one configuration to another.
-RabbitMQ will fail and close the channel if you try to create a queue with the same name but different configuration.
-To migrate a queue, you can use the `migrateQueue` option.
-
-```javascript
-const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost');
-
 
 ### Changelog
 
