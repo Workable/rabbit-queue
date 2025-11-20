@@ -129,10 +129,13 @@ abstract class BaseQueueHandler {
   }
 
   handleError(err, msg) {
-    this.logger.error(err);
+    const logLevel = err?.logLevel || 'error';
+    this.logger[logLevel](err);
+
     if (msg.properties.headers === undefined) {
       msg.properties.headers = {};
     }
+
     msg.properties.headers.errors = {
       name: err.name && err.name.substr(0, 200),
       message: err.message && err.message.substr(0, 200),
