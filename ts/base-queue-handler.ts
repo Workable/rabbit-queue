@@ -129,8 +129,7 @@ abstract class BaseQueueHandler {
   }
 
   handleError(err, msg) {
-    const logLevel = err?.logLevel || 'error';
-    this.logger[logLevel](err);
+    this.logError(err);
 
     if (msg.properties.headers === undefined) {
       msg.properties.headers = {};
@@ -142,6 +141,14 @@ abstract class BaseQueueHandler {
       stack: err.stack && err.stack.substr(0, 200),
       time: new Date().toString()
     };
+  }
+
+  logError(err) {
+    if (err?.logAsWarning) {
+      this.logger.warn(err);
+    } else {
+      this.logger.error(err);
+    }
   }
 
   getTime() {
