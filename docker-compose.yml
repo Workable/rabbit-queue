@@ -1,4 +1,4 @@
-version: "2.2"
+version: '2.2'
 services:
   rabbit-queue:
     image: node:14
@@ -11,3 +11,5 @@ services:
       RABBIT_URL: 'amqp://rabbit'
   rabbit:
     image: rabbitmq
+    ports:
+      - '5672:5672'

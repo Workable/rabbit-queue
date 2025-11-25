@@ -237,4 +237,49 @@ describe('Test baseQueueHandler', function () {
     migratorSpy.args[0][0].should.equal(this.name);
     migratorSpy.args[1][0].should.equal(this.name + '_dlq');
   });
+
+  it('should log error as warning when error has logAsWarning property set to true', async function () {
+    const handler = new DemoHandler(this.name, rabbit, {
+      retries: 0,
+      retryDelay: 10
+    });
+    await handler.created;
+    const warnSpy = sandbox.spy(handler.logger, 'warn');
+    const errorSpy = sandbox.spy(handler.logger, 'error');
+
+    const errorWithWarning = new Error('test warning error');
+    (<any>errorWithWarning).logAsWarning = true;
+
+    handler.handle = sandbox.spy(() => {
+      throw errorWithWarning;
+    });
+
+    await rabbit.publish(this.name, { test: 'data' }, { correlationId: '5' });
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    warnSpy.calledWith(errorWithWarning).should.be.true();
+    errorSpy.calledWith(errorWithWarning).should.be.false();
+  });
+
+  it('should log error as error when error does not have logAsWarning property set', async function () {
+    const handler = new DemoHandler(this.name, rabbit, {
+      retries: 0,
+      retryDelay: 10
+    });
+    await handler.created;
+    const warnSpy = sandbox.spy(handler.logger, 'warn');
+    const errorSpy = sandbox.spy(handler.logger, 'error');
+
+    const normalError = new Error('test normal error');
+
+    handler.handle = sandbox.spy(() => {
+      throw normalError;
+    });
+
+    await rabbit.publish(this.name, { test: 'data' }, { correlationId: '6' });
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    errorSpy.calledWith(normalError).should.be.true();
+    warnSpy.calledWith(normalError).should.be.false();
+  });
 });

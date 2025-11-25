@@ -129,16 +129,26 @@ abstract class BaseQueueHandler {
   }
 
   handleError(err, msg) {
-    this.logger.error(err);
+    this.logError(err);
+
     if (msg.properties.headers === undefined) {
       msg.properties.headers = {};
     }
+
     msg.properties.headers.errors = {
       name: err.name && err.name.substr(0, 200),
       message: err.message && err.message.substr(0, 200),
       stack: err.stack && err.stack.substr(0, 200),
       time: new Date().toString()
     };
+  }
+
+  logError(err) {
+    if (err?.logAsWarning) {
+      this.logger.warn(err);
+    } else {
+      this.logger.error(err);
+    }
   }
 
   getTime() {
