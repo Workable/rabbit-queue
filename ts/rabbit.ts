@@ -25,11 +25,26 @@ export default class Rabbit extends EventEmitter {
   public prefix: string;
   public scheduledPublish: boolean;
   public socketOptions;
+  private defaultQueueType: string | undefined;
   public logger: ReturnType<typeof getLogger>;
 
   constructor(
     public url: string,
-    { prefetch = 1, replyPattern = true, prefix = '', scheduledPublish = false, socketOptions = {} } = {}
+    {
+      prefetch = 1,
+      replyPattern = true,
+      prefix = '',
+      scheduledPublish = false,
+      socketOptions = {},
+      defaultQueueType = undefined,
+    }: {
+      prefetch?: number
+      replyPattern?: boolean
+      prefix?: string
+      scheduledPublish?: boolean
+      socketOptions?: any
+      defaultQueueType?: string
+    } = {}
   ) {
     super();
     if (!Rabbit.INSTANCE) {
@@ -42,6 +57,7 @@ export default class Rabbit extends EventEmitter {
     this.prefix = prefix;
     this.scheduledPublish = scheduledPublish;
     this.socketOptions = socketOptions;
+    this.defaultQueueType = defaultQueueType;
     this.reconnect();
   }
 
@@ -101,9 +117,12 @@ export default class Rabbit extends EventEmitter {
 
   async createQueue(
     name: string,
-    options: amqp.Options.AssertQueue & { prefix?: string; prefetch? } = {},
+    options: amqp.Options.AssertQueue & amqp.Options.Consume & { prefix?: string; prefetch? } = {},
     handler?: (msg: any, ack: (error?, reply?) => any) => any
   ) {
+    if (this.defaultQueueType && !options.arguments?.['x-queue-type']) {
+      options.arguments = { ...options.arguments, 'x-queue-type': this.defaultQueueType };
+    }
     options.prefetch = options.prefetch || this.prefetch;
     name = this.updateName(name, options.prefix);
     await this.connected;

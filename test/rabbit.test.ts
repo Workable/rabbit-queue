@@ -119,6 +119,81 @@ describe('Test rabbit class', function() {
     stub.calledWith(handler).should.be.true();
   });
 
+  it('should create queue with max priority when priority is specified', async function() {
+    const subscription = sandbox.stub(Queue.prototype, 'subscribe');
+    rabbit = new Rabbit(this.url);
+    await rabbit.connected;
+    const stub = sandbox.stub(rabbit.consumeChannel, 'assertQueue')
+      .resolves({ queue: this.name, messageCount: 0, consumerCount: 0 });
+    const priority = 23;
+    const handler = () => {};
+    await rabbit.createQueue(this.name, { priority: priority }, handler);
+    subscription.calledWith(handler).should.be.true();
+    const [name, options] = stub.firstCall.args;
+    name.should.equal(this.name);
+    options!.arguments['x-max-priority'].should.equals(priority);
+  });
+
+  it('should apply queue type when defaultQueueType is provided', async function() {
+    const subscription = sandbox.stub(Queue.prototype, 'subscribe');
+    const queueType = 'classic';
+    rabbit = new Rabbit(this.url, { defaultQueueType: queueType });
+    await rabbit.connected;
+    const stub = sandbox.stub(rabbit.consumeChannel, 'assertQueue')
+      .resolves({ queue: this.name, messageCount: 0, consumerCount: 0 });
+    const handler = () => {};
+    await rabbit.createQueue(this.name, {}, handler);
+    subscription.calledWith(handler).should.be.true();
+    const [name, options] = stub.firstCall.args;
+    name.should.equal(this.name);
+    options!.arguments['x-queue-type'].should.equals(queueType);
+  });
+
+  it('should not set x-queue-type when neither default nor explicit queue type is provided', async function() {
+    const subscription = sandbox.stub(Queue.prototype, 'subscribe');
+    rabbit = new Rabbit(this.url);
+    await rabbit.connected;
+    const stub = sandbox.stub(rabbit.consumeChannel, 'assertQueue')
+      .resolves({ queue: this.name, messageCount: 0, consumerCount: 0 });
+    const handler = () => {};
+    await rabbit.createQueue(this.name, { }, handler);
+    subscription.calledWith(handler).should.be.true();
+    stub.calledOnce.should.be.true();
+    const [name, options] = stub.firstCall.args;
+    name.should.equal(this.name);
+    options!.arguments.should.not.have.property('x-queue-type');
+  });
+
+  it('should use the provided queue type instead of the default', async function() {
+    const subscription = sandbox.stub(Queue.prototype, 'subscribe');
+    rabbit = new Rabbit(this.url, { defaultQueueType: 'classic' });
+    await rabbit.connected;
+    const stub = sandbox.stub(rabbit.consumeChannel, 'assertQueue')
+      .resolves({ queue: this.name, messageCount: 0, consumerCount: 0 });
+    const handler = () => {};
+    const queueType = 'quorum';
+    await rabbit.createQueue(this.name, { arguments: { 'x-queue-type': queueType }}, handler);
+    subscription.calledWith(handler).should.be.true();
+    const [name, options] = stub.firstCall.args;
+    name.should.equal(this.name);
+    options!.arguments['x-queue-type'].should.equals(queueType);
+  });
+
+  it('should ignore priority when creating a quorum queue', async function() {
+    const subscription = sandbox.stub(Queue.prototype, 'subscribe');
+    rabbit = new Rabbit(this.url, { defaultQueueType: 'quorum' });
+    await rabbit.connected;
+    const stub = sandbox.stub(rabbit.consumeChannel, 'assertQueue')
+      .resolves({ queue: this.name, messageCount: 0, consumerCount: 0 });
+    const handler = () => {};
+    await rabbit.createQueue(this.name, { priority: 23 }, handler);
+    subscription.calledWith(handler).should.be.true();
+    stub.calledOnce.should.be.true();
+    const [name, options] = stub.firstCall.args;
+    name.should.equal(this.name);
+    options!.arguments.should.not.have.property('x-max-priority');
+  });
+
   it('should unsubscribe', async function() {
     const stub = sandbox.stub(Queue.prototype, 'unsubscribe');
     rabbit = new Rabbit(this.url);
