@@ -194,6 +194,51 @@ describe('Test rabbit class', function() {
     options!.arguments.should.not.have.property('x-max-priority');
   });
 
+  it('should set queue type to classic when creating a non durable queue', async function() {
+    const subscription = sandbox.stub(Queue.prototype, 'subscribe');
+    rabbit = new Rabbit(this.url, { defaultQueueType: 'quorum' });
+    await rabbit.connected;
+    const stub = sandbox.stub(rabbit.consumeChannel, 'assertQueue')
+      .resolves({ queue: this.name, messageCount: 0, consumerCount: 0 });
+    const handler = () => {};
+    await rabbit.createQueue(this.name, { durable: false }, handler);
+    subscription.calledWith(handler).should.be.true();
+    stub.calledOnce.should.be.true();
+    const [name, options] = stub.firstCall.args;
+    name.should.equal(this.name);
+    options!.arguments['x-queue-type'].should.equals('classic');
+  });
+
+  it('should set queue type to classic when creating an exclusive queue', async function() {
+    const subscription = sandbox.stub(Queue.prototype, 'subscribe');
+    rabbit = new Rabbit(this.url, { defaultQueueType: 'quorum' });
+    await rabbit.connected;
+    const stub = sandbox.stub(rabbit.consumeChannel, 'assertQueue')
+      .resolves({ queue: this.name, messageCount: 0, consumerCount: 0 });
+    const handler = () => {};
+    await rabbit.createQueue(this.name, { exclusive: true }, handler);
+    subscription.calledWith(handler).should.be.true();
+    stub.calledOnce.should.be.true();
+    const [name, options] = stub.firstCall.args;
+    name.should.equal(this.name);
+    options!.arguments['x-queue-type'].should.equals('classic');
+  });
+
+  it('should set queue type to classic when creating an auto delete queue', async function() {
+    const subscription = sandbox.stub(Queue.prototype, 'subscribe');
+    rabbit = new Rabbit(this.url, { defaultQueueType: 'quorum' });
+    await rabbit.connected;
+    const stub = sandbox.stub(rabbit.consumeChannel, 'assertQueue')
+      .resolves({ queue: this.name, messageCount: 0, consumerCount: 0 });
+    const handler = () => {};
+    await rabbit.createQueue(this.name, { autoDelete: true }, handler);
+    subscription.calledWith(handler).should.be.true();
+    stub.calledOnce.should.be.true();
+    const [name, options] = stub.firstCall.args;
+    name.should.equal(this.name);
+    options!.arguments['x-queue-type'].should.equals('classic');
+  });
+
   it('should unsubscribe', async function() {
     const stub = sandbox.stub(Queue.prototype, 'unsubscribe');
     rabbit = new Rabbit(this.url);
