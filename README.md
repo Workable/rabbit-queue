@@ -250,6 +250,18 @@ new DemoHandler('demoQueue', rabbit, {
 rabbit.publish('demoQueue', { test: 'data' }, { correlationId: '4' });
 ```
 
+### Queue Type Behavior
+
+You can control the type of queues created with the `defaultQueueType` option in your Rabbit configuration.
+```javascript
+const rabbit = new Rabbit(process.env.RABBIT_URL, { defaultQueueType: 'quorum' });
+```
+
+When declaring queues, the following rules apply:
+- **Non-durable, exclusive, or auto-delete queues** always use **classic** queue type, since **quorum** queues and **streams** are always durable and not designed for temporary or connection-bound queues. 
+
+The type of a queue is **immutable** once it has been declared. Attempting to change it after creation will result in a **PRECONDITION_FAILED** error. 
+
 ### Changelog
 
 ### New in v5.4.x

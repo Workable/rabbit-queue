@@ -54,6 +54,10 @@ export default class Queue {
     if (priority !== undefined) {
       queueOptions.arguments = { ...queueOptions.arguments, 'x-max-priority': priority };
     }
+    if (!durable || exclusive || autoDelete) {
+      queueOptions.arguments ??= {};
+      queueOptions.arguments['x-queue-type'] = 'classic';
+    }
     if (queueOptions.arguments?.['x-max-priority'] &&
       queueOptions.arguments?.['x-queue-type'] === 'quorum') {
       logger.warn(`Invalid x-max-priority argument for quorum queue '${this.name}'`);
