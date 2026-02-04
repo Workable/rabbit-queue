@@ -69,12 +69,13 @@ export default class Queue {
   async subscribe(handler: (msg: any, ack: (error?, reply?) => any) => any) {
     await this.created;
     this.handler = handler;
-    let tag = await this.channel.consume(this.name, this.onMessage.bind(this), { noAck: this.options.noAck });
-    this.tag = tag;
+    this.tag = await this.channel.consume(this.name, this.onMessage.bind(this), { noAck: this.options.noAck });
   }
 
   async unsubscribe() {
-    await this.channel.cancel(this.tag.consumerTag);
+    if (this.tag) {
+      await this.channel.cancel(this.tag.consumerTag);
+    }
     this.handler = null;
     this.tag = null;
   }

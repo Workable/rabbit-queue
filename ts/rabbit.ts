@@ -27,6 +27,7 @@ export default class Rabbit extends EventEmitter {
   public socketOptions;
   private defaultQueueType: string | undefined;
   public logger: ReturnType<typeof getLogger>;
+  private readonly sigtermHandler: () => void;
 
   constructor(
     public url: string,
@@ -58,7 +59,10 @@ export default class Rabbit extends EventEmitter {
     this.scheduledPublish = scheduledPublish;
     this.socketOptions = socketOptions;
     this.defaultQueueType = defaultQueueType;
+    this.sigtermHandler = this.handleSigterm.bind(this);
     this.reconnect();
+
+    process.once('SIGTERM', this.sigtermHandler);
   }
 
   private async connect() {
@@ -239,7 +243,22 @@ export default class Rabbit extends EventEmitter {
   }
 
   async close() {
+    process.off('SIGTERM', this.sigtermHandler);
+
     await this.consumeConnection.close();
     await this.publishConnection.close();
+  }
+
+  private handleSigterm() {
+    this.logger.info('Received SIGTERM. Cancelling consumers..');
+
+    for (const queue of Object.values(this.queues)) {
+      queue.unsubscribe()
+        .then(() => {
+          this.logger.debug(`Consumer for queue ${queue.name} cancelled.`);
+        }).catch(e => {
+          this.logger.error(`Consumer for queue ${queue.name} failed to cancel`, e);
+        });
+    }
   }
 }
