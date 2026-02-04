@@ -7,11 +7,12 @@ import Exchange from '../ts/exchange';
 import * as ReplyQueue from '../ts/reply-queue';
 import * as DelayQueue from '../ts/delay-queue';
 import * as amqp from 'amqplib';
+import { randomUUID } from 'crypto';
 
 const sandbox = sinon.createSandbox();
 
 describe('Test rabbit class', function() {
-  let rabbit: Rabbit;
+  let rabbit: Rabbit | null;
 
   before(function() {
     this.url = process.env.RABBIT_URL || 'amqp://localhost';
@@ -363,5 +364,33 @@ describe('Test rabbit class', function() {
     rabbit = new Rabbit(this.url, { prefix: 'test' });
     await rabbit.destroyQueue(this.name);
     stub.calledWith(rabbit.consumeChannel, `test_${this.name}`).should.be.true();
+  });
+
+  it('should register sigtermHandler in SIGTERM process listeners and remove on close', async function() {
+    rabbit = new Rabbit(this.url);
+    await rabbit.connected;
+
+    const handler = (rabbit as any).sigtermHandler;
+
+    process.listeners('SIGTERM').should.containEql(handler);
+
+    rabbit.close();
+    rabbit = null;
+
+    process.listeners('SIGTERM').should.not.containEql(handler);
+  });
+
+  it('should call unsubscribe for all queues on SIGTERM', async function() {
+    const stub = sandbox.stub(Queue.prototype, 'unsubscribe').resolves();
+
+    rabbit = new Rabbit(this.url);
+    await rabbit.connected;
+
+    const handler = () => ({});
+    await rabbit.createQueue(randomUUID().toString(), { exclusive: true }, handler);
+    await rabbit.createQueue(randomUUID().toString(), { exclusive: true }, handler);
+
+    (rabbit as any).sigtermHandler();
+    stub.calledTwice.should.be.true();
   });
 });
