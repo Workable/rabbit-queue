@@ -1,15 +1,13 @@
-version: '2.2'
 services:
-  rabbit-queue:
-    image: node:14
-    working_dir: /code
-    volumes:
-      - .:/code
-    links:
-      - rabbit
-    environment:
-      RABBIT_URL: 'amqp://rabbit'
-  rabbit:
-    image: rabbitmq
+  rabbitmq:
+    image: rabbitmq:${RABBITMQ_VERSION:-4.1.2}-management
+    container_name: rabbitmq
     ports:
-      - '5672:5672'
+      - 5672:5672
+      - 15672:15672
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      timeout: 10s
+      interval: 5s
+      retries: 5
+
