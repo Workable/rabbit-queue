@@ -182,16 +182,16 @@ abstract class BaseQueueHandler {
   }
 
   async addToDLQ(retries, msg: amqp.Message, ack) {
+    const correlationId = this.getCorrelationId(msg);
     try {
-      const correlationId = this.getCorrelationId(msg);
       const event = decode(msg);
       this.logger.warn(`[${correlationId}] Adding to dlq: ${this.dlqName} after ${retries} retries`);
       await this.rabbit.publish(this.dlqName, event, msg.properties);
       const response = await this.afterDlq({ msg, event });
       ack(msg.properties.headers.errors.message, response);
     } catch (err) {
-      this.logger.error(err);
-      await this.rabbit.publish(this.dlqName, msg.content.toString(), msg.properties);
+      this.logger.error(`[${correlationId}] Failed to add to dlq: ${this.dlqName}`, err);
+      await this.rabbit.publish(this.dlqName, msg.content, msg.properties);
       ack(err.message, null);
     }
   }
