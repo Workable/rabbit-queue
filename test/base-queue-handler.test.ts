@@ -206,7 +206,7 @@ describe('Test baseQueueHandler', function () {
     });
 
     await rabbit.publish(this.name, { test: 'data' }, { correlationId: '3' });
-    const publish = (handler.rabbit.publish = sandbox.spy(handler.rabbit, 'publish'));
+    const publish = sandbox.spy(handler.rabbit, 'publish');
     await new Promise(resolve => setTimeout(resolve, 300));
 
     afterDlq.calledOnce.should.be.true();
