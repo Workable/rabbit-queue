@@ -183,12 +183,12 @@ describe('Test baseQueueHandler', function () {
     DemoHandler.prototype.afterDlq = originalAfterDlq;
   });
 
-  it('should add string to dlq because afterDlq throws error', async function () {
-    sandbox.useFakeTimers();
+  it('should add raw buffer to dlq when afterDlq throws to prevent double-encoding', async function () {
     const handler = new DemoHandler(this.name, rabbit, {
       retries: 2,
-      retryDelay: 100
+      retryDelay: 10
     });
+    await handler.created;
     handler.handle = sandbox.spy(() => {
       throw new Error('test error');
     });
@@ -198,18 +198,28 @@ describe('Test baseQueueHandler', function () {
         throw new Error('test error');
       }
     }));
+
+    const dlqMessages: any[] = [];
+    await rabbit.subscribe(this.name + '_dlq', (msg, ack) => {
+      dlqMessages.push({ event: JSON.parse(msg.content.toString()), content: msg.content });
+      ack(null);
+    });
+
     await rabbit.publish(this.name, { test: 'data' }, { correlationId: '3' });
-    const publish = (handler.rabbit.publish = sandbox.spy(handler.rabbit, 'publish'));
-    sandbox.clock.tick(100);
-    await rabbit.connected;
-    sandbox.clock.tick(100);
-    await rabbit.connected;
-    sandbox.clock.tick(100);
-    sandbox.clock.restore();
-    await new Promise(resolve => setTimeout(resolve, 400));
+    const publish = sandbox.spy(handler.rabbit, 'publish');
+    await new Promise(resolve => setTimeout(resolve, 300));
+
     afterDlq.calledOnce.should.be.true();
     publish.calledTwice.should.be.true();
-    publish.args[publish.callCount - 1][1].should.eql('{"test":"data"}');
+    const fallbackPayload = publish.args[publish.callCount - 1][1];
+    Buffer.isBuffer(fallbackPayload).should.be.true();
+    fallbackPayload.toString().should.eql('{"test":"data"}');
+
+    // TODO: This flow also produces duplicate messages on the DLQ,
+    // to be investigated and handled on the next PR
+    dlqMessages.length.should.equal(2);
+    dlqMessages[0].event.should.eql({ test: 'data' });
+    dlqMessages[1].event.should.eql({ test: 'data' });
   });
 
   it('should add to dlq after x retries and get error response even if afterDlq throws error', async function () {
