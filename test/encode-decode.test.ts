@@ -14,6 +14,13 @@ describe('encode-decode', function() {
     it('supports text', function() {
       encode('foo', 'application/text').should.eql(Buffer.from('foo'));
     });
+
+    it('returns Buffer unchanged without re-encoding as JSON', function() {
+      const buf = Buffer.from('{"foo":"bar"}');
+      const result = encode(buf);
+      result.should.equal(buf);
+      result.toString().should.equal('{"foo":"bar"}');
+    });
   });
 
   describe('decode', function() {
