@@ -17,7 +17,9 @@
     "pretest": "tslint --project ./ts/ && tslint  ./test/**/*.ts && npm run build",
     "test": "nyc mocha",
     "deps:up": "docker compose up -d --wait",
-    "deps:down": "docker compose down"
+    "deps:down": "docker compose down",
+    "gh:release": "gh release create v$npm_package_version --generate-notes --verify-tag --target master",
+    "gh:prerelease": "gh release create v$npm_package_version --prerelease --generate-notes --verify-tag --target master"
   },
   "lint-staged": {
     "*.{ts,js}": [
