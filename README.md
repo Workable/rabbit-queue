@@ -375,3 +375,11 @@ The tests are set up with Docker + Docker-Compose,
 so you don't need to install rabbitmq (or even node) to run them:
 
 `npm run test-docker`
+
+## Release new version
+
+```sh
+npm version patch
+git push --follow-tags
+npm run gh:release
+```
