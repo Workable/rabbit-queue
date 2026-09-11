@@ -157,7 +157,7 @@ describe('Test rabbit class', function() {
     const stub = sandbox.stub(rabbit.consumeChannel, 'assertQueue')
       .resolves({ queue: this.name, messageCount: 0, consumerCount: 0 });
     const handler = () => {};
-    await rabbit.createQueue(this.name, { }, handler);
+    await rabbit.createQueue(this.name, {}, handler);
     subscription.calledWith(handler).should.be.true();
     stub.calledOnce.should.be.true();
     const [name, options] = stub.firstCall.args;
@@ -173,7 +173,7 @@ describe('Test rabbit class', function() {
       .resolves({ queue: this.name, messageCount: 0, consumerCount: 0 });
     const handler = () => {};
     const queueType = 'quorum';
-    await rabbit.createQueue(this.name, { arguments: { 'x-queue-type': queueType }}, handler);
+    await rabbit.createQueue(this.name, { arguments: { 'x-queue-type': queueType } }, handler);
     subscription.calledWith(handler).should.be.true();
     const [name, options] = stub.firstCall.args;
     name.should.equal(this.name);
@@ -284,7 +284,7 @@ describe('Test rabbit class', function() {
     const headers = { headers: { test: 1 } };
     await rabbit.publishWithDelay(`test_${this.name}`, content, headers);
     stub.calledOnce.should.be.true();
-    stub.args.should.eql([['test_delay', content, headers, rabbit.consumeChannel, `test_${this.name}`]]);
+    stub.args.should.eql([['test_delay', content, headers, rabbit.consumeChannel, `test_${this.name}`, false]]);
   });
 
   it('should publish to queue with getReply', async function() {
@@ -392,5 +392,17 @@ describe('Test rabbit class', function() {
 
     (rabbit as any).sigtermHandler();
     stub.calledTwice.should.be.true();
+  });
+
+  describe('when defaultQueueType is quorum', function() {
+    it('should publish to queue with Delay, and use quorum delay queue', async function() {
+      const stub = sandbox.stub(DelayQueue, 'publishWithDelay');
+      rabbit = new Rabbit(this.url, { prefix: 'test', scheduledPublish: true, defaultQueueType: 'quorum' });
+      const content = { content: true };
+      const headers = { headers: { test: 1 } };
+      await rabbit.publishWithDelay(`test_${this.name}`, content, headers);
+      stub.calledOnce.should.be.true();
+      stub.args.should.eql([['test_delay_quorum', content, headers, rabbit.consumeChannel, `test_${this.name}`, true]]);
+    });
   });
 });

@@ -104,7 +104,8 @@ export default class Rabbit extends EventEmitter {
       await createReplyQueue(this.consumeChannel);
     }
     if (!publish && this.scheduledPublish) {
-      await createDelayQueueReply(this.consumeChannel, this.updateName('delay'));
+      const createAsQuorum = this.defaultQueueType === 'quorum';
+      await createDelayQueueReply(this.consumeChannel, this.updateName('delay'), createAsQuorum);
     }
   }
 
@@ -121,7 +122,7 @@ export default class Rabbit extends EventEmitter {
 
   async createQueue(
     name: string,
-    options: amqp.Options.AssertQueue & amqp.Options.Consume & { prefix?: string; prefetch? } = {},
+    options: amqp.Options.AssertQueue & amqp.Options.Consume & { prefix?: string; prefetch?} = {},
     handler?: (msg: any, ack: (error?, reply?) => any) => any
   ) {
     if (this.defaultQueueType && !options.arguments?.['x-queue-type']) {
@@ -187,7 +188,9 @@ export default class Rabbit extends EventEmitter {
     }
     name = this.updateName(name, prefix);
     await this.connected;
-    await publishWithDelay(this.updateName('delay'), obj, properties, this.consumeChannel, name);
+    const createQueueAsQuorum = this.defaultQueueType === 'quorum';
+    const queueName = createQueueAsQuorum ? 'delay_quorum' : 'delay';
+    await publishWithDelay(this.updateName(queueName), obj, properties, this.consumeChannel, name, createQueueAsQuorum);
   }
 
   async getReply(name: string, obj, properties: amqp.Options.Publish, prefix?: string, timeout?: number) {
