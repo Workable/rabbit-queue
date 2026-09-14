@@ -88,17 +88,19 @@ describe('Test DelayQueue', function() {
     const createQueueAsQuorum = true;
 
     it('should createDelayQueue as quorum type', async function() {
+      const delayQueueName = 'delay';
+      await DelayQueue.createDelayQueueReply(rabbit.consumeChannel, delayQueueName, true);
       const queueInstance = sinon.createStubInstance(Queue.default);
       const stub = sandbox.stub(Queue, 'default').returns(queueInstance);
 
-      await DelayQueue.createDelayQueue(rabbit.consumeChannel, 'delay', createQueueAsQuorum);
+      await DelayQueue.createDelayQueue(rabbit.consumeChannel, delayQueueName, createQueueAsQuorum);
 
       stub.args[0].should.eql([
         rabbit.consumeChannel,
-        'delay',
+        delayQueueName,
         {
           deadLetterExchange: '',
-          deadLetterRoutingKey: 'delay_reply',
+          deadLetterRoutingKey: 'delay_quorum_reply',
           arguments: { 'x-queue-type': 'quorum' }
         }
       ]);
