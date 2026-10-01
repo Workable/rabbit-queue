@@ -394,10 +394,10 @@ describe('Test rabbit class', function() {
     stub.calledTwice.should.be.true();
   });
 
-  describe('when defaultQueueType is quorum', function() {
+  describe('when scheduledPublishQueuesAsQuorum option is true', function() {
     it('should publish to queue with Delay, and use quorum delay queue', async function() {
       const stub = sandbox.stub(DelayQueue, 'publishWithDelay');
-      rabbit = new Rabbit(this.url, { prefix: 'test', scheduledPublish: true, defaultQueueType: 'quorum' });
+      rabbit = new Rabbit(this.url, { prefix: 'test', scheduledPublish: true, scheduledPublishQueuesAsQuorum: true });
       const content = { content: true };
       const headers = { headers: { test: 1 } };
       await rabbit.publishWithDelay(`test_${this.name}`, content, headers);

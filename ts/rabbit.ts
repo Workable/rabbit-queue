@@ -26,6 +26,7 @@ export default class Rabbit extends EventEmitter {
   public scheduledPublish: boolean;
   public socketOptions;
   private defaultQueueType: string | undefined;
+  private scheduledPublishQueuesAsQuorum: boolean;
   public logger: ReturnType<typeof getLogger>;
   private readonly sigtermHandler: () => void;
 
@@ -38,6 +39,7 @@ export default class Rabbit extends EventEmitter {
       scheduledPublish = false,
       socketOptions = {},
       defaultQueueType = undefined,
+      scheduledPublishQueuesAsQuorum = false,
     }: {
       prefetch?: number
       replyPattern?: boolean
@@ -45,6 +47,7 @@ export default class Rabbit extends EventEmitter {
       scheduledPublish?: boolean
       socketOptions?: any
       defaultQueueType?: string
+      scheduledPublishQueuesAsQuorum?: boolean
     } = {}
   ) {
     super();
@@ -59,6 +62,7 @@ export default class Rabbit extends EventEmitter {
     this.scheduledPublish = scheduledPublish;
     this.socketOptions = socketOptions;
     this.defaultQueueType = defaultQueueType;
+    this.scheduledPublishQueuesAsQuorum = scheduledPublishQueuesAsQuorum;
     this.sigtermHandler = this.handleSigterm.bind(this);
     this.reconnect();
 
@@ -188,9 +192,8 @@ export default class Rabbit extends EventEmitter {
     }
     name = this.updateName(name, prefix);
     await this.connected;
-    const createQueueAsQuorum = this.defaultQueueType === 'quorum';
-    const queueName = createQueueAsQuorum ? 'delay_quorum' : 'delay';
-    await publishWithDelay(this.updateName(queueName), obj, properties, this.consumeChannel, name, createQueueAsQuorum);
+    const queueName = this.scheduledPublishQueuesAsQuorum ? 'delay_quorum' : 'delay';
+    await publishWithDelay(this.updateName(queueName), obj, properties, this.consumeChannel, name, this.scheduledPublishQueuesAsQuorum);
   }
 
   async getReply(name: string, obj, properties: amqp.Options.Publish, prefix?: string, timeout?: number) {

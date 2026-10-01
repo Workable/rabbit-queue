@@ -262,10 +262,16 @@ When declaring queues, the following rules apply:
 
 The type of a queue is **immutable** once it has been declared. Attempting to change it after creation will result in a **PRECONDITION_FAILED** error. 
 
-So far the default internal queue `({prefix}_)?delay_reply` was always created as classic. The same applies for queues created when publishing with delay which followed the format `({prefix}_)?delay_{expiration}`. In order to avoid conflicts with existing queues in the cluster , when opted-in to create queues as `quorum` default type , new internal queue will be created with the format `({prefix}_)?delay_quorum_reply`. That way you can have old deployments using the classic queues and newer deployments with quorum queues.
+### scheduledPublishQueuesAsQuorum option
+
+So far the default internal queue `({prefix}_)?delay_reply` was always created as classic. The same applies for queues created when publishing with delay which followed the format `({prefix}_)?delay_{expiration}`. In order to avoid conflicts with existing queues in the cluster , when opted-in to create queues as `quorum` , new internal queue will be created with the format `({prefix}_)?delay_quorum_reply`. That way you can have old deployments using the classic queues and newer deployments with quorum queues.
   
 
 ### Changelog
+
+### New in v5.10.x
+
+- add option to create internal schedulePublish queues as quorum
 
 ### New in v5.4.x
 
