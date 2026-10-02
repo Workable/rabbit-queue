@@ -11,7 +11,13 @@ let delayedQueueNameReply: string;
 
 export async function createDelayQueueReply(channel: Channel, delayedQueueName: string, createAsQuorum: boolean = false) {
   delayedQueueNameReply = createAsQuorum ? `${delayedQueueName}_quorum_reply` : `${delayedQueueName}_reply`;
-  delayedQueueReply = new Queue(channel, delayedQueueNameReply, { ...createAsQuorum && { arguments: { 'x-queue-type': 'quorum' } } });
+  delayedQueueReply = new Queue(channel, delayedQueueNameReply, { ...createAsQuorum && {
+      arguments: {
+        'x-dead-letter-strategy': 'at-least-once',
+        'x-queue-type': 'quorum',
+      },
+      overflow: 'reject-publish'
+    } });
   await delayedQueueReply.created;
   delayedQueueReply.subscribe(onMessage(channel));
 }
@@ -20,7 +26,13 @@ export async function createDelayQueue(channel: Channel, delayedQueueName: strin
   delayedQueue[delayedQueueName] = new Queue(channel, delayedQueueName, {
     deadLetterExchange: '',
     deadLetterRoutingKey: delayedQueueNameReply,
-    ...createAsQuorum && { arguments: { 'x-queue-type': 'quorum' } }
+    ...createAsQuorum && {
+      arguments: {
+        'x-dead-letter-strategy': 'at-least-once',
+        'x-queue-type': 'quorum',
+      },
+      overflow: 'reject-publish'
+    }
   });
   await delayedQueue[delayedQueueName].created;
 }

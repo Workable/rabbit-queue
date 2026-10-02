@@ -39,6 +39,7 @@ export default class Queue {
       deadLetterExchange,
       deadLetterRoutingKey,
       maxLength,
+      overflow
     } = this.options;
     let queueOptions: amqp.Options.AssertQueue = {
       exclusive,
@@ -49,6 +50,7 @@ export default class Queue {
       deadLetterExchange,
       deadLetterRoutingKey,
       maxLength,
+      overflow,
       arguments: { ...this.options.arguments }
     };
     if (priority !== undefined) {
