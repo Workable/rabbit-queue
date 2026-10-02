@@ -22,9 +22,7 @@ describe('Test DelayQueue', function() {
     await rabbit.destroyQueue('delay_3000');
     await rabbit.destroyQueue('delay_10');
     await rabbit.destroyQueue('delay_reply');
-  });
-
-  afterEach(async function() {
+    await rabbit.destroyQueue('delay_quorum_reply');
     await rabbit.close();
   });
 
@@ -38,7 +36,7 @@ describe('Test DelayQueue', function() {
       'delay',
       {
         deadLetterExchange: '',
-        deadLetterRoutingKey: 'delay_reply'
+        deadLetterRoutingKey: 'delay_reply',
       }
     ]);
   });
@@ -84,5 +82,56 @@ describe('Test DelayQueue', function() {
     spy.calledOnce.should.be.true();
     spy.args[0].should.containDeep([{ queueName: 'queue', obj: content }, { expiration: '10' }, 'delay_10']);
     (<any>await promise).content.toString().should.eql(JSON.stringify(content));
+  });
+
+  describe('when option createAsQuorum is true', function() {
+    const createQueueAsQuorum = true;
+
+    it('should createDelayQueue as quorum type', async function() {
+      const delayQueueName = 'delay';
+      await DelayQueue.createDelayQueueReply(rabbit.consumeChannel, delayQueueName, true);
+      const queueInstance = sinon.createStubInstance(Queue.default);
+      const stub = sandbox.stub(Queue, 'default').returns(queueInstance);
+
+      await DelayQueue.createDelayQueue(rabbit.consumeChannel, delayQueueName, createQueueAsQuorum);
+
+      stub.args[0].should.eql([
+        rabbit.consumeChannel,
+        delayQueueName,
+        {
+          deadLetterExchange: '',
+          deadLetterRoutingKey: 'delay_quorum_reply',
+          overflow: 'reject-publish',
+          arguments: {
+            'x-queue-type': 'quorum',
+            'x-dead-letter-strategy': 'at-least-once',
+          },
+        }
+      ]);
+    });
+
+    it('should createDelayQueueReply as quorum with relevant name', async function() {
+      const queueInstance = sinon.createStubInstance(Queue.default);
+      const stub = sandbox.stub(Queue, 'default').returns(queueInstance);
+
+      await DelayQueue.createDelayQueueReply(rabbit.consumeChannel, 'delay', createQueueAsQuorum);
+
+      stub.args.should.eql([[rabbit.consumeChannel, 'delay_quorum_reply', {
+        arguments: {
+          'x-queue-type': 'quorum',
+          'x-dead-letter-strategy': 'at-least-once'
+        },
+        overflow: 'reject-publish'
+      }]]);
+    });
+
+    it('should publishWithDelay and create not existing queue', async function() {
+      const stub = sandbox.stub(Queue.default, 'publish').returns(null);
+
+      await DelayQueue.publishWithDelay('delay', {}, {}, rabbit.consumeChannel, 'test', createQueueAsQuorum);
+
+      stub.calledOnce.should.be.true();
+      stub.args[0].should.containDeep([{ queueName: 'test', obj: {} }, { expiration: '10000' }, 'delay_10000']);
+    });
   });
 });
