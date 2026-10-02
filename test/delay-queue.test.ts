@@ -101,7 +101,11 @@ describe('Test DelayQueue', function() {
         {
           deadLetterExchange: '',
           deadLetterRoutingKey: 'delay_quorum_reply',
-          arguments: { 'x-queue-type': 'quorum' }
+          overflow: 'reject-publish',
+          arguments: {
+            'x-queue-type': 'quorum',
+            'x-dead-letter-strategy': 'at-least-once',
+          },
         }
       ]);
     });
@@ -112,7 +116,13 @@ describe('Test DelayQueue', function() {
 
       await DelayQueue.createDelayQueueReply(rabbit.consumeChannel, 'delay', createQueueAsQuorum);
 
-      stub.args.should.eql([[rabbit.consumeChannel, 'delay_quorum_reply', { arguments: { 'x-queue-type': 'quorum' } }]]);
+      stub.args.should.eql([[rabbit.consumeChannel, 'delay_quorum_reply', {
+        arguments: {
+          'x-queue-type': 'quorum',
+          'x-dead-letter-strategy': 'at-least-once'
+        },
+        overflow: 'reject-publish'
+      }]]);
     });
 
     it('should publishWithDelay and create not existing queue', async function() {
