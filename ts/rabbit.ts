@@ -108,8 +108,7 @@ export default class Rabbit extends EventEmitter {
       await createReplyQueue(this.consumeChannel);
     }
     if (!publish && this.scheduledPublish) {
-      const createAsQuorum = this.defaultQueueType === 'quorum';
-      await createDelayQueueReply(this.consumeChannel, this.updateName('delay'), createAsQuorum);
+      await createDelayQueueReply(this.consumeChannel, this.updateName('delay'), this.scheduledPublishQueuesAsQuorum);
     }
   }
 
