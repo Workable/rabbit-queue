@@ -260,9 +260,13 @@ const rabbit = new Rabbit(process.env.RABBIT_URL, { defaultQueueType: 'quorum' }
 When declaring queues, the following rules apply:
 - **Non-durable, exclusive, or auto-delete queues** always use **classic** queue type, since **quorum** queues and **streams** are always durable and not designed for temporary or connection-bound queues. 
 
-The type of a queue is **immutable** once it has been declared. Attempting to change it after creation will result in a **PRECONDITION_FAILED** error. 
+The type of a queue is **immutable** once it has been declared. When a queue already exists with different arguments (e.g. another type, another `x-max-priority`, or another DLX or TTL), the broker rejects the declare with **PRECONDITION_FAILED**. `createQueue` then logs a warning naming the argument and consumes the queue as it exists, with its existing arguments. Declares run on a short-lived channel, so the rejection doesn't close the channel other consumers are on. Any other declare error still rejects `createQueue`.
 
 ### Changelog
+
+### New in v5.10.x
+
+- Tolerant queue declares. A queue that already exists with different arguments (classic vs quorum, with or without priority) is consumed as it is, with a warning, instead of the declare closing the shared consume channel and disconnecting every consumer. Old and new pods can now run side by side during a rolling deploy that changes a queue's type or priority, e.g. while migrating classic mirrored queues to quorum.
 
 ### New in v5.4.x
 

@@ -9,6 +9,7 @@ import * as DelayQueue from '../ts/delay-queue';
 import * as amqp from 'amqplib';
 import { randomUUID } from 'crypto';
 
+const { Channel: AmqpChannel } = require('amqplib/lib/channel_model');
 const sandbox = sinon.createSandbox();
 
 describe('Test rabbit class', function() {
@@ -108,6 +109,10 @@ describe('Test rabbit class', function() {
     rabbit = new Rabbit(this.url);
     await rabbit.connected;
     const spy = sandbox.spy(rabbit.consumeChannel, 'prefetch');
+    const prefetchAtSubscribe = {};
+    stub.callsFake(async function() {
+      prefetchAtSubscribe[this.name] = spy.lastCall.args[0];
+    });
     const handler = () => ({});
     let promises = [];
     promises.push(rabbit.createQueue(this.name, { exclusive: true, prefetch: 20 }, handler));
@@ -115,7 +120,7 @@ describe('Test rabbit class', function() {
     promises.push(rabbit.createQueue(this.name3, { exclusive: true, prefetch: 10 }, handler));
     promises.push(rabbit.createQueue(this.name4, { exclusive: true, prefetch: 10 }, handler));
     await Promise.all(promises);
-    spy.args.should.eql([[20], [15], [10]]);
+    prefetchAtSubscribe.should.eql({ [this.name]: 20, [this.name2]: 15, [this.name3]: 10, [this.name4]: 10 });
     rabbit.queues[this.name].name.should.equal(this.name);
     stub.calledWith(handler).should.be.true();
   });
@@ -124,7 +129,7 @@ describe('Test rabbit class', function() {
     const subscription = sandbox.stub(Queue.prototype, 'subscribe');
     rabbit = new Rabbit(this.url);
     await rabbit.connected;
-    const stub = sandbox.stub(rabbit.consumeChannel, 'assertQueue')
+    const stub = sandbox.stub(AmqpChannel.prototype, 'assertQueue')
       .resolves({ queue: this.name, messageCount: 0, consumerCount: 0 });
     const priority = 23;
     const handler = () => {};
@@ -140,7 +145,7 @@ describe('Test rabbit class', function() {
     const queueType = 'classic';
     rabbit = new Rabbit(this.url, { defaultQueueType: queueType });
     await rabbit.connected;
-    const stub = sandbox.stub(rabbit.consumeChannel, 'assertQueue')
+    const stub = sandbox.stub(AmqpChannel.prototype, 'assertQueue')
       .resolves({ queue: this.name, messageCount: 0, consumerCount: 0 });
     const handler = () => {};
     await rabbit.createQueue(this.name, {}, handler);
@@ -154,7 +159,7 @@ describe('Test rabbit class', function() {
     const subscription = sandbox.stub(Queue.prototype, 'subscribe');
     rabbit = new Rabbit(this.url);
     await rabbit.connected;
-    const stub = sandbox.stub(rabbit.consumeChannel, 'assertQueue')
+    const stub = sandbox.stub(AmqpChannel.prototype, 'assertQueue')
       .resolves({ queue: this.name, messageCount: 0, consumerCount: 0 });
     const handler = () => {};
     await rabbit.createQueue(this.name, { }, handler);
@@ -169,7 +174,7 @@ describe('Test rabbit class', function() {
     const subscription = sandbox.stub(Queue.prototype, 'subscribe');
     rabbit = new Rabbit(this.url, { defaultQueueType: 'classic' });
     await rabbit.connected;
-    const stub = sandbox.stub(rabbit.consumeChannel, 'assertQueue')
+    const stub = sandbox.stub(AmqpChannel.prototype, 'assertQueue')
       .resolves({ queue: this.name, messageCount: 0, consumerCount: 0 });
     const handler = () => {};
     const queueType = 'quorum';
@@ -184,7 +189,7 @@ describe('Test rabbit class', function() {
     const subscription = sandbox.stub(Queue.prototype, 'subscribe');
     rabbit = new Rabbit(this.url, { defaultQueueType: 'quorum' });
     await rabbit.connected;
-    const stub = sandbox.stub(rabbit.consumeChannel, 'assertQueue')
+    const stub = sandbox.stub(AmqpChannel.prototype, 'assertQueue')
       .resolves({ queue: this.name, messageCount: 0, consumerCount: 0 });
     const handler = () => {};
     await rabbit.createQueue(this.name, { priority: 23 }, handler);
@@ -199,7 +204,7 @@ describe('Test rabbit class', function() {
     const subscription = sandbox.stub(Queue.prototype, 'subscribe');
     rabbit = new Rabbit(this.url, { defaultQueueType: 'quorum' });
     await rabbit.connected;
-    const stub = sandbox.stub(rabbit.consumeChannel, 'assertQueue')
+    const stub = sandbox.stub(AmqpChannel.prototype, 'assertQueue')
       .resolves({ queue: this.name, messageCount: 0, consumerCount: 0 });
     const handler = () => {};
     await rabbit.createQueue(this.name, { durable: false }, handler);
@@ -214,7 +219,7 @@ describe('Test rabbit class', function() {
     const subscription = sandbox.stub(Queue.prototype, 'subscribe');
     rabbit = new Rabbit(this.url, { defaultQueueType: 'quorum' });
     await rabbit.connected;
-    const stub = sandbox.stub(rabbit.consumeChannel, 'assertQueue')
+    const stub = sandbox.stub(AmqpChannel.prototype, 'assertQueue')
       .resolves({ queue: this.name, messageCount: 0, consumerCount: 0 });
     const handler = () => {};
     await rabbit.createQueue(this.name, { exclusive: true }, handler);
@@ -229,7 +234,7 @@ describe('Test rabbit class', function() {
     const subscription = sandbox.stub(Queue.prototype, 'subscribe');
     rabbit = new Rabbit(this.url, { defaultQueueType: 'quorum' });
     await rabbit.connected;
-    const stub = sandbox.stub(rabbit.consumeChannel, 'assertQueue')
+    const stub = sandbox.stub(AmqpChannel.prototype, 'assertQueue')
       .resolves({ queue: this.name, messageCount: 0, consumerCount: 0 });
     const handler = () => {};
     await rabbit.createQueue(this.name, { autoDelete: true }, handler);
@@ -392,5 +397,77 @@ describe('Test rabbit class', function() {
 
     (rabbit as any).sigtermHandler();
     stub.calledTwice.should.be.true();
+  });
+
+  describe('when the queue exists with different arguments', function() {
+    let admin: amqp.ChannelModel;
+    let queueName: string;
+
+    beforeEach(async function() {
+      admin = await amqp.connect(this.url);
+      queueName = `existing_${randomUUID()}`;
+    });
+
+    afterEach(async function() {
+      const channel = await admin.createChannel();
+      await channel.deleteQueue(queueName);
+      await admin.close();
+    });
+
+    async function declareExisting(args: object) {
+      const channel = await admin.createChannel();
+      await channel.assertQueue(queueName, { durable: true, arguments: args });
+      await channel.close();
+    }
+
+    async function consumeOne(options: object) {
+      let onMessage: (content: string) => void;
+      const received = new Promise<string>(resolve => (onMessage = resolve));
+      await rabbit.createQueue(queueName, options, (msg, ack) => {
+        ack();
+        onMessage(msg.content.toString());
+      });
+      await rabbit.publish(queueName, { test: true });
+      return received;
+    }
+
+    const cases = [
+      { existing: 'a classic queue', declared: 'as quorum', args: {}, options: { arguments: { 'x-queue-type': 'quorum' } } },
+      { existing: 'a quorum queue', declared: 'without a type', args: { 'x-queue-type': 'quorum' }, options: {} },
+      { existing: 'a priority queue', declared: 'without priority', args: { 'x-max-priority': 10 }, options: {} },
+      { existing: 'a queue without priority', declared: 'with priority', args: {}, options: { priority: 10 } }
+    ];
+
+    cases.forEach(({ existing, declared, args, options }) => {
+      it(`should consume ${existing} declared ${declared} without disconnecting`, async function() {
+        await declareExisting(args);
+        rabbit = new Rabbit(this.url);
+        const disconnected = sandbox.spy();
+        rabbit.on('disconnected', disconnected);
+
+        (await consumeOne(options)).should.equal(JSON.stringify({ test: true }));
+        disconnected.called.should.be.false();
+      });
+    });
+
+    it('should reject invalid arguments for a new queue with the original error', async function() {
+      rabbit = new Rabbit(this.url);
+      const disconnected = sandbox.spy();
+      rabbit.on('disconnected', disconnected);
+
+      await rabbit.createQueue(queueName, { arguments: { 'x-max-length-bytes': 'abc' } })
+        .should.be.rejectedWith({ code: 406, message: /invalid arg/ });
+      disconnected.called.should.be.false();
+    });
+
+    it('should reject other declare errors without disconnecting', async function() {
+      rabbit = new Rabbit(this.url);
+      const disconnected = sandbox.spy();
+      rabbit.on('disconnected', disconnected);
+
+      await rabbit.createQueue('amq.reserved').should.be.rejectedWith({ code: 403 });
+      (await consumeOne({})).should.equal(JSON.stringify({ test: true }));
+      disconnected.called.should.be.false();
+    });
   });
 });

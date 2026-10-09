@@ -8,6 +8,8 @@ import { encode } from './encode-decode';
 import getLogger from './logger';
 
 const logger = getLogger('rabbit-queue');
+const PRECONDITION_FAILED = 406;
+
 export default class Queue {
   static STOP_PROPAGATION = { stopPropagation: true };
   static ERROR_DURING_REPLY = { error: true, error_code: 999 };
@@ -63,7 +65,40 @@ export default class Queue {
       logger.warn(`Invalid x-max-priority argument for quorum queue '${this.name}'`);
       delete queueOptions.arguments['x-max-priority'];
     }
-    await this.channel.assertQueue(this.name, queueOptions);
+    await this.assertQueue(queueOptions);
+  }
+
+  // A failed declare closes its channel, so declares run on throwaway channels and a mismatch with the
+  // existing queue (e.g. classic vs quorum during a migration) can't take down the consumers.
+  // Server-named queues stay on the consume channel: consume('') resolves to the last queue declared there.
+  private async assertQueue(queueOptions: amqp.Options.AssertQueue) {
+    if (!this.channel.channelModel || !this.name) {
+      await this.channel.assertQueue(this.name, queueOptions);
+      return;
+    }
+    try {
+      await this.withDeclareChannel(channel => channel.assertQueue(this.name, queueOptions));
+    } catch (error) {
+      if (error.code !== PRECONDITION_FAILED) {
+        throw error;
+      }
+      // 406 also means invalid arguments for a queue that doesn't exist yet; report that, not the 404.
+      await this.withDeclareChannel(channel => channel.checkQueue(this.name)).catch(() => {
+        throw error;
+      });
+      logger.warn(`Queue ${this.name} exists with different arguments, using it as it is: ${error.message}`);
+    }
+  }
+
+  private async withDeclareChannel(declare: (channel: amqp.Channel) => Promise<unknown>) {
+    const channel = await this.channel.channelModel.createChannel();
+    // The rejected declare already carries the error; without a listener the 'error' event would throw.
+    channel.on('error', () => undefined);
+    try {
+      await declare(channel);
+    } finally {
+      await channel.close().catch(() => undefined);
+    }
   }
 
   async subscribe(handler: (msg: any, ack: (error?, reply?) => any) => any) {

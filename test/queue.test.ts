@@ -4,6 +4,7 @@ import * as assert from 'assert';
 import * as sinon from 'sinon';
 import Queue from '../ts/queue';
 import { Readable } from 'stream';
+const { Channel: AmqpChannel } = require('amqplib/lib/channel_model');
 const sandbox = sinon.createSandbox();
 
 describe('Test Queue class', function () {
@@ -17,7 +18,7 @@ describe('Test Queue class', function () {
   });
 
   beforeEach(function () {
-    this.spyAssert = sandbox.spy(rabbit.consumeChannel, 'assertQueue');
+    this.spyAssert = sandbox.spy(AmqpChannel.prototype, 'assertQueue');
     this.spyConsume = sandbox.spy(rabbit.consumeChannel, 'consume');
     this.spyCancel = sandbox.spy(rabbit.consumeChannel, 'cancel');
     this.spyDeleteQueue = sandbox.spy(rabbit.consumeChannel, 'deleteQueue');

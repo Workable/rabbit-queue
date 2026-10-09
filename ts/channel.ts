@@ -10,4 +10,5 @@ export interface Channel extends amqp.Channel {
     cb?: Function
   ): boolean;
   replyName?: string;
+  channelModel?: amqp.ChannelModel;
 }

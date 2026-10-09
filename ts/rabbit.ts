@@ -94,7 +94,9 @@ export default class Rabbit extends EventEmitter {
   async createChannel(connection: amqp.ChannelModel) {
     connection.once('close', error => this.emitDisconnected(error));
     connection.on('error', error => this.emitDisconnected(error));
-    return connection.createConfirmChannel();
+    const channel: Channel = await connection.createConfirmChannel();
+    channel.channelModel = connection;
+    return channel;
   }
 
   async initChannel(channel: Channel, publish = false) {
