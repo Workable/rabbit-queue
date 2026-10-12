@@ -77,6 +77,12 @@ describe('Test Queue class', function () {
     maxOpen.should.equal(10);
   });
 
+  it('should keep declare channels within the negotiated channel limit', async function () {
+    sandbox.stub(rabbit.consumeConnection.connection as any, 'channelMax').value(4);
+    const queues = Array.from({ length: 10 }, (_, i) => new Queue(rabbit.consumeChannel, `${this.name}.limit.${i}`, { exclusive: true }));
+    await Promise.all(queues.map(queue => queue.created));
+  });
+
   it('should free declare channels after failed declares', async function () {
     for (let i = 0; i < 11; i++) {
       await new Queue(rabbit.consumeChannel, 'amq.reserved', {}).created.should.be.rejectedWith({ code: 403 });

@@ -19,7 +19,11 @@ async function acquireDeclareSlot(connection: amqp.ChannelModel): Promise<() => 
     slots = { inUse: 0, waiting: [] };
     declareSlots.set(connection, slots);
   }
-  if (slots.inUse < MAX_DECLARE_CHANNELS_PER_CONNECTION) {
+  // amqplib's typings omit the negotiated channelMax. One channel is reserved for the consume channel;
+  // at least one slot is kept so a tiny limit fails with amqplib's error instead of hanging.
+  const { channelMax } = connection.connection as unknown as { channelMax: number };
+  const limit = Math.max(1, Math.min(MAX_DECLARE_CHANNELS_PER_CONNECTION, channelMax - 1));
+  if (slots.inUse < limit) {
     slots.inUse++;
   } else {
     await new Promise<void>(resolve => slots.waiting.push(resolve));
