@@ -1,4 +1,4 @@
-import * as uuid from 'uuid';
+import { randomUUID } from 'crypto';
 import * as amqp from 'amqplib';
 import { Channel } from './channel';
 import { getReply } from './reply-queue';
@@ -161,7 +161,7 @@ export default class Queue {
       await queue.created;
     }
     return new Promise((resolve, reject) => {
-      const correlationId = properties.correlationId || uuid.v4();
+      const correlationId = properties.correlationId || randomUUID();
 
       properties = Object.assign({ persistent: true, correlationId }, properties);
       const bufferContent = encode(obj, properties.contentType);
