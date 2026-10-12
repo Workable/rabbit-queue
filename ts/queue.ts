@@ -9,6 +9,30 @@ import getLogger from './logger';
 
 const logger = getLogger('rabbit-queue');
 const PRECONDITION_FAILED = 406;
+const MAX_DECLARE_CHANNELS_PER_CONNECTION = 10;
+const declareSlots = new WeakMap<amqp.ChannelModel, { inUse: number; waiting: (() => void)[] }>();
+
+// Startup declares run concurrently; without a bound, their channels could exhaust the connection's channel_max.
+async function acquireDeclareSlot(connection: amqp.ChannelModel): Promise<() => void> {
+  let slots = declareSlots.get(connection);
+  if (!slots) {
+    slots = { inUse: 0, waiting: [] };
+    declareSlots.set(connection, slots);
+  }
+  if (slots.inUse < MAX_DECLARE_CHANNELS_PER_CONNECTION) {
+    slots.inUse++;
+  } else {
+    await new Promise<void>(resolve => slots.waiting.push(resolve));
+  }
+  return () => {
+    const next = slots.waiting.shift();
+    if (next) {
+      next();
+    } else {
+      slots.inUse--;
+    }
+  };
+}
 
 export default class Queue {
   static STOP_PROPAGATION = { stopPropagation: true };
@@ -91,13 +115,18 @@ export default class Queue {
   }
 
   private async withDeclareChannel(declare: (channel: amqp.Channel) => Promise<unknown>) {
-    const channel = await this.channel.channelModel.createChannel();
-    // The rejected declare already carries the error; without a listener the 'error' event would throw.
-    channel.on('error', () => undefined);
+    const release = await acquireDeclareSlot(this.channel.channelModel);
     try {
-      await declare(channel);
+      const channel = await this.channel.channelModel.createChannel();
+      // The rejected declare already carries the error; without a listener the 'error' event would throw.
+      channel.on('error', () => undefined);
+      try {
+        await declare(channel);
+      } finally {
+        await channel.close().catch(() => undefined);
+      }
     } finally {
-      await channel.close().catch(() => undefined);
+      release();
     }
   }
 

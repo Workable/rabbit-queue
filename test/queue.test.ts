@@ -53,6 +53,37 @@ describe('Test Queue class', function () {
       .should.be.true();
   });
 
+  it('should open at most 10 declare channels at once per connection', async function () {
+    const connection = rabbit.consumeConnection;
+    const createChannel = connection.createChannel.bind(connection);
+    let open = 0;
+    let maxOpen = 0;
+    sandbox.stub(connection, 'createChannel').callsFake(async () => {
+      maxOpen = Math.max(maxOpen, ++open);
+      const channel = await createChannel();
+      const close = channel.close.bind(channel);
+      channel.close = async () => {
+        try {
+          await close();
+        } finally {
+          open--;
+        }
+      };
+      return channel;
+    });
+
+    const queues = Array.from({ length: 25 }, (_, i) => new Queue(rabbit.consumeChannel, `${this.name}.${i}`, { exclusive: true }));
+    await Promise.all(queues.map(queue => queue.created));
+    maxOpen.should.equal(10);
+  });
+
+  it('should free declare channels after failed declares', async function () {
+    for (let i = 0; i < 11; i++) {
+      await new Queue(rabbit.consumeChannel, 'amq.reserved', {}).created.should.be.rejectedWith({ code: 403 });
+    }
+    await new Queue(rabbit.consumeChannel, this.name, { exclusive: true }).created;
+  });
+
   it('should create queue and add handler to it', async function () {
     const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true, noAck: true });
     await queue.created;
