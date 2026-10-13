@@ -1,7 +1,7 @@
 import { Channel } from './channel';
 import * as amqp from 'amqplib';
 import * as assert from 'assert';
-import * as uuid from 'uuid';
+import { randomUUID } from 'crypto';
 import Queue from './queue';
 import { Readable } from 'stream';
 import { decode, encode } from './encode-decode';
@@ -29,7 +29,7 @@ export function addHandler(correlationId, handler: (err: Error, body: string) =>
 
 export function getReply(content: any, properties: amqp.Options.Publish = {}, channel: Channel, cb: Function) {
   return new Promise((resolve, reject) => {
-    var correlationId = properties.correlationId || uuid.v4();
+    var correlationId = properties.correlationId || randomUUID();
     properties = Object.assign(
       {
         persistent: false,

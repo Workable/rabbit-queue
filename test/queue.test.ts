@@ -4,6 +4,7 @@ import * as assert from 'assert';
 import * as sinon from 'sinon';
 import Queue from '../ts/queue';
 import { Readable } from 'stream';
+const { Channel: AmqpChannel } = require('amqplib/lib/channel_model');
 const sandbox = sinon.createSandbox();
 
 describe('Test Queue class', function () {
@@ -17,7 +18,7 @@ describe('Test Queue class', function () {
   });
 
   beforeEach(function () {
-    this.spyAssert = sandbox.spy(rabbit.consumeChannel, 'assertQueue');
+    this.spyAssert = sandbox.spy(AmqpChannel.prototype, 'assertQueue');
     this.spyConsume = sandbox.spy(rabbit.consumeChannel, 'consume');
     this.spyCancel = sandbox.spy(rabbit.consumeChannel, 'cancel');
     this.spyDeleteQueue = sandbox.spy(rabbit.consumeChannel, 'deleteQueue');
@@ -51,6 +52,43 @@ describe('Test Queue class', function () {
         arguments: { 'x-queue-type': 'classic' }
       })
       .should.be.true();
+  });
+
+  it('should open at most 10 declare channels at once per connection', async function () {
+    const connection = rabbit.consumeConnection;
+    const createChannel = connection.createChannel.bind(connection);
+    let open = 0;
+    let maxOpen = 0;
+    sandbox.stub(connection, 'createChannel').callsFake(async () => {
+      maxOpen = Math.max(maxOpen, ++open);
+      const channel = await createChannel();
+      const close = channel.close.bind(channel);
+      channel.close = async () => {
+        try {
+          await close();
+        } finally {
+          open--;
+        }
+      };
+      return channel;
+    });
+
+    const queues = Array.from({ length: 25 }, (_, i) => new Queue(rabbit.consumeChannel, `${this.name}.${i}`, { exclusive: true }));
+    await Promise.all(queues.map(queue => queue.created));
+    maxOpen.should.equal(10);
+  });
+
+  it('should keep declare channels within the negotiated channel limit', async function () {
+    sandbox.stub(rabbit.consumeConnection.connection as any, 'channelMax').value(4);
+    const queues = Array.from({ length: 10 }, (_, i) => new Queue(rabbit.consumeChannel, `${this.name}.limit.${i}`, { exclusive: true }));
+    await Promise.all(queues.map(queue => queue.created));
+  });
+
+  it('should free declare channels after failed declares', async function () {
+    for (let i = 0; i < 11; i++) {
+      await new Queue(rabbit.consumeChannel, 'amq.reserved', {}).created.should.be.rejectedWith({ code: 403 });
+    }
+    await new Queue(rabbit.consumeChannel, this.name, { exclusive: true }).created;
   });
 
   it('should create queue and add handler to it', async function () {
@@ -429,17 +467,26 @@ describe('Test Queue class', function () {
   });
 
   it('should bind to exchange', async function () {
-    const spy = sandbox.spy(rabbit.consumeChannel, 'bindQueue');
+    const spy = sandbox.spy(AmqpChannel.prototype, 'bindQueue');
     const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true });
     await Queue.bindToExchange('amq.topic', this.name, rabbit.consumeChannel, this.name, queue);
-    spy.calledWith(this.name, 'amq.topic', this.name);
+    spy.calledWith(this.name, 'amq.topic', this.name).should.be.true();
+    spy.calledOn(rabbit.consumeChannel).should.be.false();
   });
 
   it('should unbind to exchange', async function () {
-    const spy = sandbox.spy(rabbit.consumeChannel, 'unbindQueue');
+    const spy = sandbox.spy(AmqpChannel.prototype, 'unbindQueue');
     const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true });
     await Queue.unbindFromExchange('amq.topic', this.name, rabbit.consumeChannel, this.name, queue);
-    spy.calledWith(this.name, 'amq.topic', this.name);
+    spy.calledWith(this.name, 'amq.topic', this.name).should.be.true();
+    spy.calledOn(rabbit.consumeChannel).should.be.false();
+  });
+
+  it('should reject a failed bind without closing the consume channel', async function () {
+    const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true });
+    await Queue.bindToExchange(`missing_${this.name}`, this.name, rabbit.consumeChannel, this.name, queue)
+      .should.be.rejectedWith({ code: 404 });
+    await rabbit.consumeChannel.checkQueue(this.name);
   });
 
   it('should getReply as a stream and stop on demand', async function () {

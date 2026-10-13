@@ -29,6 +29,7 @@ const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost', {
   replyPattern: true, //if reply pattern is enabled an exclusive queue is created
   scheduledPublish: false,
   prefix: '', //prefix all queues with an application name
+  tolerateQueueTypeMismatch: false, //consume an existing queue whose type or priority differs from the declared one (see Queue Type Behavior)
   socketOptions: {} // socketOptions will be passed as a second param to amqp.connect and from ther to the socket library (net or tls)
 });
 
@@ -260,7 +261,12 @@ const rabbit = new Rabbit(process.env.RABBIT_URL, { defaultQueueType: 'quorum' }
 When declaring queues, the following rules apply:
 - **Non-durable, exclusive, or auto-delete queues** always use **classic** queue type, since **quorum** queues and **streams** are always durable and not designed for temporary or connection-bound queues. 
 
-The type of a queue is **immutable** once it has been declared. Attempting to change it after creation will result in a **PRECONDITION_FAILED** error. 
+The type of a queue is **immutable** once it has been declared. When a queue already exists with different arguments, the broker rejects the declare with **PRECONDITION_FAILED** and `createQueue` rejects. Queue declares, binds and unbinds run on a short-lived channel, so a rejected one doesn't close the channel the other consumers are on.
+
+While queues move between classic and quorum, old and new declares disagree on the queue type and on priority, which quorum queues don't support. With `tolerateQueueTypeMismatch: true`, a mismatch on `x-queue-type` or `x-max-priority` only logs a warning, and the queue is consumed as it exists. Any other mismatch (e.g. dead-letter exchange or routing key, TTL, max length) still rejects `createQueue`, even when the type differs too.
+```javascript
+const rabbit = new Rabbit(process.env.RABBIT_URL, { tolerateQueueTypeMismatch: true });
+```
 
 ### scheduledPublishQueuesAsQuorum option
 
@@ -269,9 +275,14 @@ So far the default internal queue `({prefix}_)?delay_reply` was always created a
 
 ### Changelog
 
+### New in v5.11.x
+
+- `scheduledPublishQueuesAsQuorum` option to create the internal scheduledPublish queues as quorum.
+
 ### New in v5.10.x
 
-- add option to create internal schedulePublish queues as quorum
+- Queue declares, binds and unbinds run on short-lived channels. One that fails still rejects, but no longer closes the shared consume channel and disconnects every consumer.
+- `tolerateQueueTypeMismatch` option. When enabled, a queue that already exists with a different type or priority (classic vs quorum, with or without `x-max-priority`) is consumed as it is, with a warning. Old and new pods can then run side by side during a rolling deploy that changes a queue's type or priority, e.g. while migrating classic mirrored queues to quorum. Off by default.
 
 ### New in v5.4.x
 
