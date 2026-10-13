@@ -9,6 +9,8 @@ import getLogger from './logger';
 
 const logger = getLogger('rabbit-queue');
 const PRECONDITION_FAILED = 406;
+// What changes when a queue moves between classic and quorum: quorum queues have no x-max-priority.
+const TOLERATED_MISMATCHES = ['x-queue-type', 'x-max-priority'];
 const MAX_DECLARE_CHANNELS_PER_CONNECTION = 10;
 const declareSlots = new WeakMap<amqp.ChannelModel, { inUse: number; waiting: (() => void)[] }>();
 
@@ -38,6 +40,29 @@ async function acquireDeclareSlot(connection: amqp.ChannelModel): Promise<() => 
   };
 }
 
+// A failed declare closes its channel, so declares run on throwaway channels and one that fails can't take down
+// the consumers. Server-named queues stay on the consume channel: consume('') resolves to the last queue declared there.
+async function withDeclareChannel<T>(channel: Channel, queueName: string, declare: (channel: amqp.Channel) => Promise<T>) {
+  if (!channel.channelModel || !queueName) {
+    return declare(channel);
+  }
+  const release = await acquireDeclareSlot(channel.channelModel);
+  try {
+    const declareChannel = await channel.channelModel.createChannel();
+    // The rejected declare already carries the error; without a listener the 'error' event would throw.
+    declareChannel.on('error', () => undefined);
+    try {
+      return await declare(declareChannel);
+    } finally {
+      await declareChannel.close().catch(() => undefined);
+    }
+  } finally {
+    release();
+  }
+}
+
+export type QueueOptions = amqp.Options.AssertQueue & amqp.Options.Consume & { tolerateQueueTypeMismatch?: boolean };
+
 export default class Queue {
   static STOP_PROPAGATION = { stopPropagation: true };
   static ERROR_DURING_REPLY = { error: true, error_code: 999 };
@@ -48,12 +73,12 @@ export default class Queue {
     durable: true,
     noAck: false
   };
-  public options: amqp.Options.AssertQueue & amqp.Options.Consume;
+  public options: QueueOptions;
   public created: Promise<any>;
   public handler: Function;
   private tag: amqp.Replies.Consume;
 
-  constructor(public channel: Channel, public name: string, options: amqp.Options.AssertQueue & amqp.Options.Consume) {
+  constructor(public channel: Channel, public name: string, options: QueueOptions) {
     this.options = Object.assign({}, this.defaultOptions, options);
     this.created = this.create();
   }
@@ -96,41 +121,32 @@ export default class Queue {
     await this.assertQueue(queueOptions);
   }
 
-  // A failed declare closes its channel, so declares run on throwaway channels and a mismatch with the
-  // existing queue (e.g. classic vs quorum during a migration) can't take down the consumers.
-  // Server-named queues stay on the consume channel: consume('') resolves to the last queue declared there.
   private async assertQueue(queueOptions: amqp.Options.AssertQueue) {
-    if (!this.channel.channelModel || !this.name) {
-      await this.channel.assertQueue(this.name, queueOptions);
-      return;
-    }
-    try {
-      await this.withDeclareChannel(channel => channel.assertQueue(this.name, queueOptions));
-    } catch (error) {
-      if (error.code !== PRECONDITION_FAILED) {
-        throw error;
-      }
-      // 406 also means invalid arguments for a queue that doesn't exist yet; report that, not the 404.
-      await this.withDeclareChannel(channel => channel.checkQueue(this.name)).catch(() => {
-        throw error;
-      });
-      logger.warn(`Queue ${this.name} exists with different arguments, using it as it is: ${error.message}`);
-    }
-  }
-
-  private async withDeclareChannel(declare: (channel: amqp.Channel) => Promise<unknown>) {
-    const release = await acquireDeclareSlot(this.channel.channelModel);
-    try {
-      const channel = await this.channel.channelModel.createChannel();
-      // The rejected declare already carries the error; without a listener the 'error' event would throw.
-      channel.on('error', () => undefined);
+    const tolerated: string[] = [];
+    while (true) {
       try {
-        await declare(channel);
-      } finally {
-        await channel.close().catch(() => undefined);
+        await withDeclareChannel(this.channel, this.name, channel => channel.assertQueue(this.name, queueOptions));
+        break;
+      } catch (error) {
+        const [, arg, current] = /inequivalent arg '([^']+)'.* current is (?:none|(?:the value )?'([^']*)')/.exec(error.message) ?? [];
+        if (!this.options.tolerateQueueTypeMismatch || error.code !== PRECONDITION_FAILED ||
+          !TOLERATED_MISMATCHES.includes(arg) || tolerated.includes(arg)) {
+          throw error;
+        }
+        tolerated.push(arg);
+        // The broker reports only the first mismatch it finds. Redeclaring with the existing value lets it check the
+        // rest, so a tolerated mismatch can't hide one that isn't (e.g. x-message-ttl is checked after x-queue-type).
+        const args = { ...queueOptions.arguments };
+        if (current === undefined) {
+          delete args[arg];
+        } else {
+          args[arg] = /^\d+$/.test(current) ? Number(current) : current;
+        }
+        queueOptions = { ...queueOptions, arguments: args };
       }
-    } finally {
-      release();
+    }
+    if (tolerated.length) {
+      logger.warn(`Queue ${this.name} exists with a different ${tolerated.join(' and ')}, using it as it is`);
     }
   }
 
@@ -264,7 +280,7 @@ export default class Queue {
     if (queue) {
       await queue.created;
     }
-    await channel.bindQueue(name, exchange, routingKey);
+    await withDeclareChannel(channel, name, declareChannel => declareChannel.bindQueue(name, exchange, routingKey));
     logger.debug(`created binding ${exchange} routingkey:${routingKey} --> queue:${name}`);
   }
 
@@ -272,7 +288,7 @@ export default class Queue {
     if (queue) {
       await queue.created;
     }
-    await channel.unbindQueue(name, exchange, routingKey);
+    await withDeclareChannel(channel, name, declareChannel => declareChannel.unbindQueue(name, exchange, routingKey));
     logger.debug(`deleted binding${exchange} routingkey:${routingKey} -X-> queue:${name}}`);
   }
 }

@@ -420,28 +420,38 @@ describe('Test rabbit class', function() {
       await channel.close();
     }
 
-    async function consumeOne(options: object) {
+    async function consumeOne(options: object, name = queueName) {
       let onMessage: (content: string) => void;
       const received = new Promise<string>(resolve => (onMessage = resolve));
-      await rabbit.createQueue(queueName, options, (msg, ack) => {
+      await rabbit.createQueue(name, options, (msg, ack) => {
         ack();
         onMessage(msg.content.toString());
       });
-      await rabbit.publish(queueName, { test: true });
+      await rabbit.publish(name, { test: true });
       return received;
+    }
+
+    async function consumeTemporaryQueue() {
+      return consumeOne({ exclusive: true }, `temporary_${randomUUID()}`);
     }
 
     const cases = [
       { existing: 'a classic queue', declared: 'as quorum', args: {}, options: { arguments: { 'x-queue-type': 'quorum' } } },
       { existing: 'a quorum queue', declared: 'without a type', args: { 'x-queue-type': 'quorum' }, options: {} },
       { existing: 'a priority queue', declared: 'without priority', args: { 'x-max-priority': 10 }, options: {} },
-      { existing: 'a queue without priority', declared: 'with priority', args: {}, options: { priority: 10 } }
+      { existing: 'a queue without priority', declared: 'with priority', args: {}, options: { priority: 10 } },
+      {
+        existing: 'a classic priority queue',
+        declared: 'as quorum',
+        args: { 'x-max-priority': 10 },
+        options: { arguments: { 'x-queue-type': 'quorum' } }
+      }
     ];
 
     cases.forEach(({ existing, declared, args, options }) => {
-      it(`should consume ${existing} declared ${declared} without disconnecting`, async function() {
+      it(`should consume ${existing} declared ${declared} when tolerating type mismatches`, async function() {
         await declareExisting(args);
-        rabbit = new Rabbit(this.url);
+        rabbit = new Rabbit(this.url, { tolerateQueueTypeMismatch: true });
         const disconnected = sandbox.spy();
         rabbit.on('disconnected', disconnected);
 
@@ -450,8 +460,60 @@ describe('Test rabbit class', function() {
       });
     });
 
-    it('should reject invalid arguments for a new queue with the original error', async function() {
+    it('should reject a type mismatch by default without disconnecting', async function() {
+      await declareExisting({ 'x-queue-type': 'quorum' });
       rabbit = new Rabbit(this.url);
+      const disconnected = sandbox.spy();
+      rabbit.on('disconnected', disconnected);
+
+      await rabbit.createQueue(queueName, {}).should.be.rejectedWith({ code: 406, message: /inequivalent arg 'x-queue-type'/ });
+      (await consumeTemporaryQueue()).should.equal(JSON.stringify({ test: true }));
+      disconnected.called.should.be.false();
+    });
+
+    const otherMismatches = [
+      {
+        existing: 'a queue with another dead-letter routing key',
+        args: { 'x-dead-letter-exchange': '', 'x-dead-letter-routing-key': 'old' },
+        options: { deadLetterExchange: '', deadLetterRoutingKey: 'new' },
+        mismatch: 'x-dead-letter-routing-key'
+      },
+      {
+        existing: 'a quorum queue with another dead-letter routing key',
+        args: { 'x-queue-type': 'quorum', 'x-dead-letter-exchange': '', 'x-dead-letter-routing-key': 'old' },
+        options: { deadLetterExchange: '', deadLetterRoutingKey: 'new' },
+        mismatch: 'x-dead-letter-routing-key'
+      },
+      {
+        existing: 'a quorum queue with another TTL',
+        args: { 'x-queue-type': 'quorum', 'x-message-ttl': 60000 },
+        options: { messageTtl: 30000 },
+        mismatch: 'x-message-ttl'
+      },
+      {
+        existing: 'a classic priority queue with another overflow',
+        args: { 'x-max-priority': 10, 'x-overflow': 'drop-head' },
+        options: { arguments: { 'x-queue-type': 'quorum', 'x-overflow': 'reject-publish' } },
+        mismatch: 'x-overflow'
+      }
+    ];
+
+    otherMismatches.forEach(({ existing, args, options, mismatch }) => {
+      it(`should reject ${existing} when tolerating type mismatches`, async function() {
+        await declareExisting(args);
+        rabbit = new Rabbit(this.url, { tolerateQueueTypeMismatch: true });
+        const disconnected = sandbox.spy();
+        rabbit.on('disconnected', disconnected);
+
+        await rabbit.createQueue(queueName, options)
+          .should.be.rejectedWith({ code: 406, message: new RegExp(`inequivalent arg '${mismatch}'`) });
+        (await consumeTemporaryQueue()).should.equal(JSON.stringify({ test: true }));
+        disconnected.called.should.be.false();
+      });
+    });
+
+    it('should reject invalid arguments for a new queue', async function() {
+      rabbit = new Rabbit(this.url, { tolerateQueueTypeMismatch: true });
       const disconnected = sandbox.spy();
       rabbit.on('disconnected', disconnected);
 
@@ -461,7 +523,7 @@ describe('Test rabbit class', function() {
     });
 
     it('should reject other declare errors without disconnecting', async function() {
-      rabbit = new Rabbit(this.url);
+      rabbit = new Rabbit(this.url, { tolerateQueueTypeMismatch: true });
       const disconnected = sandbox.spy();
       rabbit.on('disconnected', disconnected);
 

@@ -466,17 +466,26 @@ describe('Test Queue class', function () {
   });
 
   it('should bind to exchange', async function () {
-    const spy = sandbox.spy(rabbit.consumeChannel, 'bindQueue');
+    const spy = sandbox.spy(AmqpChannel.prototype, 'bindQueue');
     const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true });
     await Queue.bindToExchange('amq.topic', this.name, rabbit.consumeChannel, this.name, queue);
-    spy.calledWith(this.name, 'amq.topic', this.name);
+    spy.calledWith(this.name, 'amq.topic', this.name).should.be.true();
+    spy.calledOn(rabbit.consumeChannel).should.be.false();
   });
 
   it('should unbind to exchange', async function () {
-    const spy = sandbox.spy(rabbit.consumeChannel, 'unbindQueue');
+    const spy = sandbox.spy(AmqpChannel.prototype, 'unbindQueue');
     const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true });
     await Queue.unbindFromExchange('amq.topic', this.name, rabbit.consumeChannel, this.name, queue);
-    spy.calledWith(this.name, 'amq.topic', this.name);
+    spy.calledWith(this.name, 'amq.topic', this.name).should.be.true();
+    spy.calledOn(rabbit.consumeChannel).should.be.false();
+  });
+
+  it('should reject a failed bind without closing the consume channel', async function () {
+    const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true });
+    await Queue.bindToExchange(`missing_${this.name}`, this.name, rabbit.consumeChannel, this.name, queue)
+      .should.be.rejectedWith({ code: 404 });
+    await rabbit.consumeChannel.checkQueue(this.name);
   });
 
   it('should getReply as a stream and stop on demand', async function () {

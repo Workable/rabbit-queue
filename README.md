@@ -29,6 +29,7 @@ const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost', {
   replyPattern: true, //if reply pattern is enabled an exclusive queue is created
   scheduledPublish: false,
   prefix: '', //prefix all queues with an application name
+  tolerateQueueTypeMismatch: false, //consume an existing queue whose type or priority differs from the declared one (see Queue Type Behavior)
   socketOptions: {} // socketOptions will be passed as a second param to amqp.connect and from ther to the socket library (net or tls)
 });
 
@@ -260,13 +261,19 @@ const rabbit = new Rabbit(process.env.RABBIT_URL, { defaultQueueType: 'quorum' }
 When declaring queues, the following rules apply:
 - **Non-durable, exclusive, or auto-delete queues** always use **classic** queue type, since **quorum** queues and **streams** are always durable and not designed for temporary or connection-bound queues. 
 
-The type of a queue is **immutable** once it has been declared. When a queue already exists with different arguments (e.g. another type, another `x-max-priority`, or another DLX or TTL), the broker rejects the declare with **PRECONDITION_FAILED**. `createQueue` then logs a warning naming the argument and consumes the queue as it exists, with its existing arguments. Declares run on a short-lived channel, so the rejection doesn't close the channel other consumers are on. Any other declare error still rejects `createQueue`.
+The type of a queue is **immutable** once it has been declared. When a queue already exists with different arguments, the broker rejects the declare with **PRECONDITION_FAILED** and `createQueue` rejects. Queue declares, binds and unbinds run on a short-lived channel, so a rejected one doesn't close the channel the other consumers are on.
+
+While queues move between classic and quorum, old and new declares disagree on the queue type and on priority, which quorum queues don't support. With `tolerateQueueTypeMismatch: true`, a mismatch on `x-queue-type` or `x-max-priority` only logs a warning, and the queue is consumed as it exists. Any other mismatch (e.g. dead-letter exchange or routing key, TTL, max length) still rejects `createQueue`, even when the type differs too.
+```javascript
+const rabbit = new Rabbit(process.env.RABBIT_URL, { tolerateQueueTypeMismatch: true });
+```
 
 ### Changelog
 
 ### New in v5.10.x
 
-- Tolerant queue declares. A queue that already exists with different arguments (classic vs quorum, with or without priority) is consumed as it is, with a warning, instead of the declare closing the shared consume channel and disconnecting every consumer. Old and new pods can now run side by side during a rolling deploy that changes a queue's type or priority, e.g. while migrating classic mirrored queues to quorum.
+- Queue declares, binds and unbinds run on short-lived channels. One that fails still rejects, but no longer closes the shared consume channel and disconnects every consumer.
+- `tolerateQueueTypeMismatch` option. When enabled, a queue that already exists with a different type or priority (classic vs quorum, with or without `x-max-priority`) is consumed as it is, with a warning. Old and new pods can then run side by side during a rolling deploy that changes a queue's type or priority, e.g. while migrating classic mirrored queues to quorum. Off by default.
 
 ### New in v5.4.x
 
