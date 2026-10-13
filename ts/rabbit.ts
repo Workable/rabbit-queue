@@ -26,6 +26,7 @@ export default class Rabbit extends EventEmitter {
   public scheduledPublish: boolean;
   public socketOptions;
   private defaultQueueType: string | undefined;
+  private tolerateQueueTypeMismatch: boolean;
   public logger: ReturnType<typeof getLogger>;
   private readonly sigtermHandler: () => void;
 
@@ -38,6 +39,7 @@ export default class Rabbit extends EventEmitter {
       scheduledPublish = false,
       socketOptions = {},
       defaultQueueType = undefined,
+      tolerateQueueTypeMismatch = false,
     }: {
       prefetch?: number
       replyPattern?: boolean
@@ -45,6 +47,7 @@ export default class Rabbit extends EventEmitter {
       scheduledPublish?: boolean
       socketOptions?: any
       defaultQueueType?: string
+      tolerateQueueTypeMismatch?: boolean
     } = {}
   ) {
     super();
@@ -59,6 +62,7 @@ export default class Rabbit extends EventEmitter {
     this.scheduledPublish = scheduledPublish;
     this.socketOptions = socketOptions;
     this.defaultQueueType = defaultQueueType;
+    this.tolerateQueueTypeMismatch = tolerateQueueTypeMismatch;
     this.sigtermHandler = this.handleSigterm.bind(this);
     this.reconnect();
 
@@ -94,7 +98,9 @@ export default class Rabbit extends EventEmitter {
   async createChannel(connection: amqp.ChannelModel) {
     connection.once('close', error => this.emitDisconnected(error));
     connection.on('error', error => this.emitDisconnected(error));
-    return connection.createConfirmChannel();
+    const channel: Channel = await connection.createConfirmChannel();
+    channel.channelModel = connection;
+    return channel;
   }
 
   async initChannel(channel: Channel, publish = false) {
@@ -130,7 +136,10 @@ export default class Rabbit extends EventEmitter {
     options.prefetch = options.prefetch || this.prefetch;
     name = this.updateName(name, options.prefix);
     await this.connected;
-    const queue = new Queue(this.consumeChannel, name, options);
+    const queue = new Queue(this.consumeChannel, name, {
+      ...options,
+      tolerateQueueTypeMismatch: this.tolerateQueueTypeMismatch
+    });
     this.queues[name] = queue;
     await queue.created;
     this.logger.debug(`created queue ${name}`);
