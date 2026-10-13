@@ -9,17 +9,24 @@ let delayedQueue: { [key: string]: Queue } = {};
 let delayedQueueReply: Queue;
 let delayedQueueNameReply: string;
 
-export async function createDelayQueueReply(channel: Channel, delayedQueueName: string) {
-  delayedQueueNameReply = `${delayedQueueName}_reply`;
-  delayedQueueReply = new Queue(channel, delayedQueueNameReply, {});
+const QUORUM_ARGUMENTS = {
+  'x-queue-type': 'quorum',
+  'x-overflow': 'reject-publish',
+  'x-dead-letter-strategy': 'at-least-once'
+};
+
+export async function createDelayQueueReply(channel: Channel, delayedQueueName: string, createAsQuorum = false) {
+  delayedQueueNameReply = createAsQuorum ? `${delayedQueueName}_quorum_reply` : `${delayedQueueName}_reply`;
+  delayedQueueReply = new Queue(channel, delayedQueueNameReply, createAsQuorum ? { arguments: QUORUM_ARGUMENTS } : {});
   await delayedQueueReply.created;
   delayedQueueReply.subscribe(onMessage(channel));
 }
 
-export async function createDelayQueue(channel: Channel, delayedQueueName: string) {
+export async function createDelayQueue(channel: Channel, delayedQueueName: string, createAsQuorum = false) {
   delayedQueue[delayedQueueName] = new Queue(channel, delayedQueueName, {
     deadLetterExchange: '',
-    deadLetterRoutingKey: delayedQueueNameReply
+    deadLetterRoutingKey: delayedQueueNameReply,
+    ...(createAsQuorum && { arguments: QUORUM_ARGUMENTS })
   });
   await delayedQueue[delayedQueueName].created;
 }
@@ -29,13 +36,14 @@ export async function publishWithDelay(
   obj,
   headers: amqp.Options.Publish = {},
   channel: Channel,
-  queueName: string
+  queueName: string,
+  createAsQuorum: boolean = false
 ) {
   const { expiration = '10000' } = headers || {};
   name = `${name}_${expiration}`;
 
   if (!delayedQueue[name]) {
-    await createDelayQueue(channel, name);
+    await createDelayQueue(channel, name, createAsQuorum);
   }
   const timestamp = new Date().getTime();
   Queue.publish(

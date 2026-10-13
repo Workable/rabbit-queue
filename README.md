@@ -28,6 +28,7 @@ const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost', {
   prefetch: 1, //default prefetch from queue
   replyPattern: true, //if reply pattern is enabled an exclusive queue is created
   scheduledPublish: false,
+  scheduledPublishQueuesAsQuorum: false, //declare the publishWithDelay queues as quorum (see Scheduled publish queues as quorum)
   prefix: '', //prefix all queues with an application name
   tolerateQueueTypeMismatch: false, //consume an existing queue whose type or priority differs from the declared one (see Queue Type Behavior)
   socketOptions: {} // socketOptions will be passed as a second param to amqp.connect and from ther to the socket library (net or tls)
@@ -122,7 +123,7 @@ new DemoHandler('demoQueue', rabbit, {
   retryDelay: 1000,
   logEnabled: true, //log queue processing time
   scope: 'SINGLETON', //can also be 'PROTOTYPE' to create a new instance every time
-  createAndSubscribeToQueue: true // used internally no need to overwriteÏÏ
+  createAndSubscribeToQueue: true // used internally no need to overwrite
 });
 
 rabbit.publish('demoQueue', { test: 'data' }, { correlationId: '4' });
@@ -268,10 +269,22 @@ While queues move between classic and quorum, old and new declares disagree on t
 const rabbit = new Rabbit(process.env.RABBIT_URL, { tolerateQueueTypeMismatch: true });
 ```
 
+### Scheduled publish queues as quorum
+
+`publishWithDelay` uses internal queues: a `delay_{expiration}` queue for each expiration, whose expired messages are dead-lettered to `delay_reply` and republished from there (both prefixed with `prefix_` when a prefix is set). They are declared without a queue type, so they get the virtual host's default type. With `scheduledPublishQueuesAsQuorum: true` they are declared as quorum queues, named `delay_quorum_{expiration}` and `delay_quorum_reply`, so they don't conflict with the existing classic ones. Off by default.
+```javascript
+const rabbit = new Rabbit(process.env.RABBIT_URL, { scheduledPublish: true, scheduledPublishQueuesAsQuorum: true });
+```
+
+Quorum queues need RabbitMQ 3.10 or later for per-message TTL and at-least-once dead-lettering.
+
+Messages already in a classic `delay_{expiration}` queue are still dead-lettered to `delay_reply`. Keep at least one consumer running without the option until the classic delay queues are empty, then delete them along with `delay_reply`.
+
 ### Changelog
 
 ### New in v5.10.x
 
+- `scheduledPublishQueuesAsQuorum` option. When enabled, the internal queues used by `publishWithDelay` are declared as quorum queues, under new names (`delay_quorum_{expiration}`, `delay_quorum_reply`). Off by default.
 - Queue declares, binds and unbinds run on short-lived channels. One that fails still rejects, but no longer closes the shared consume channel and disconnects every consumer.
 - `tolerateQueueTypeMismatch` option. When enabled, a queue that already exists with a different type or priority (classic vs quorum, with or without `x-max-priority`) is consumed as it is, with a warning. Old and new pods can then run side by side during a rolling deploy that changes a queue's type or priority, e.g. while migrating classic mirrored queues to quorum. Off by default.
 

@@ -26,6 +26,7 @@ export default class Rabbit extends EventEmitter {
   public scheduledPublish: boolean;
   public socketOptions;
   private defaultQueueType: string | undefined;
+  private scheduledPublishQueuesAsQuorum: boolean;
   private tolerateQueueTypeMismatch: boolean;
   public logger: ReturnType<typeof getLogger>;
   private readonly sigtermHandler: () => void;
@@ -39,6 +40,7 @@ export default class Rabbit extends EventEmitter {
       scheduledPublish = false,
       socketOptions = {},
       defaultQueueType = undefined,
+      scheduledPublishQueuesAsQuorum = false,
       tolerateQueueTypeMismatch = false,
     }: {
       prefetch?: number
@@ -47,6 +49,7 @@ export default class Rabbit extends EventEmitter {
       scheduledPublish?: boolean
       socketOptions?: any
       defaultQueueType?: string
+      scheduledPublishQueuesAsQuorum?: boolean
       tolerateQueueTypeMismatch?: boolean
     } = {}
   ) {
@@ -62,6 +65,7 @@ export default class Rabbit extends EventEmitter {
     this.scheduledPublish = scheduledPublish;
     this.socketOptions = socketOptions;
     this.defaultQueueType = defaultQueueType;
+    this.scheduledPublishQueuesAsQuorum = scheduledPublishQueuesAsQuorum;
     this.tolerateQueueTypeMismatch = tolerateQueueTypeMismatch;
     this.sigtermHandler = this.handleSigterm.bind(this);
     this.reconnect();
@@ -110,7 +114,7 @@ export default class Rabbit extends EventEmitter {
       await createReplyQueue(this.consumeChannel);
     }
     if (!publish && this.scheduledPublish) {
-      await createDelayQueueReply(this.consumeChannel, this.updateName('delay'));
+      await createDelayQueueReply(this.consumeChannel, this.updateName('delay'), this.scheduledPublishQueuesAsQuorum);
     }
   }
 
@@ -127,7 +131,7 @@ export default class Rabbit extends EventEmitter {
 
   async createQueue(
     name: string,
-    options: amqp.Options.AssertQueue & amqp.Options.Consume & { prefix?: string; prefetch? } = {},
+    options: amqp.Options.AssertQueue & amqp.Options.Consume & { prefix?: string; prefetch?} = {},
     handler?: (msg: any, ack: (error?, reply?) => any) => any
   ) {
     if (this.defaultQueueType && !options.arguments?.['x-queue-type']) {
@@ -196,7 +200,8 @@ export default class Rabbit extends EventEmitter {
     }
     name = this.updateName(name, prefix);
     await this.connected;
-    await publishWithDelay(this.updateName('delay'), obj, properties, this.consumeChannel, name);
+    const queueName = this.scheduledPublishQueuesAsQuorum ? 'delay_quorum' : 'delay';
+    await publishWithDelay(this.updateName(queueName), obj, properties, this.consumeChannel, name, this.scheduledPublishQueuesAsQuorum);
   }
 
   async getReply(name: string, obj, properties: amqp.Options.Publish, prefix?: string, timeout?: number) {
