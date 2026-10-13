@@ -9,30 +9,24 @@ let delayedQueue: { [key: string]: Queue } = {};
 let delayedQueueReply: Queue;
 let delayedQueueNameReply: string;
 
-export async function createDelayQueueReply(channel: Channel, delayedQueueName: string, createAsQuorum: boolean = false) {
+const QUORUM_ARGUMENTS = {
+  'x-queue-type': 'quorum',
+  'x-overflow': 'reject-publish',
+  'x-dead-letter-strategy': 'at-least-once'
+};
+
+export async function createDelayQueueReply(channel: Channel, delayedQueueName: string, createAsQuorum = false) {
   delayedQueueNameReply = createAsQuorum ? `${delayedQueueName}_quorum_reply` : `${delayedQueueName}_reply`;
-  delayedQueueReply = new Queue(channel, delayedQueueNameReply, { ...createAsQuorum && {
-      arguments: {
-        'x-dead-letter-strategy': 'at-least-once',
-        'x-queue-type': 'quorum',
-      },
-      overflow: 'reject-publish'
-    } });
+  delayedQueueReply = new Queue(channel, delayedQueueNameReply, createAsQuorum ? { arguments: QUORUM_ARGUMENTS } : {});
   await delayedQueueReply.created;
   delayedQueueReply.subscribe(onMessage(channel));
 }
 
-export async function createDelayQueue(channel: Channel, delayedQueueName: string, createAsQuorum: boolean = false) {
+export async function createDelayQueue(channel: Channel, delayedQueueName: string, createAsQuorum = false) {
   delayedQueue[delayedQueueName] = new Queue(channel, delayedQueueName, {
     deadLetterExchange: '',
     deadLetterRoutingKey: delayedQueueNameReply,
-    ...createAsQuorum && {
-      arguments: {
-        'x-dead-letter-strategy': 'at-least-once',
-        'x-queue-type': 'quorum',
-      },
-      overflow: 'reject-publish'
-    }
+    ...(createAsQuorum && { arguments: QUORUM_ARGUMENTS })
   });
   await delayedQueue[delayedQueueName].created;
 }

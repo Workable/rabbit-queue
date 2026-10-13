@@ -48,7 +48,6 @@ describe('Test Queue class', function () {
         deadLetterExchange: undefined,
         deadLetterRoutingKey: undefined,
         maxLength: undefined,
-        overflow: undefined,
         arguments: { 'x-queue-type': 'classic' }
       })
       .should.be.true();

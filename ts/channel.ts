@@ -1,4 +1,3 @@
-/// <reference path="./amqplib.d.ts" />
 import * as amqp from 'amqplib';
 
 export interface Channel extends amqp.Channel {

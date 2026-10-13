@@ -101,11 +101,11 @@ describe('Test DelayQueue', function() {
         {
           deadLetterExchange: '',
           deadLetterRoutingKey: 'delay_quorum_reply',
-          overflow: 'reject-publish',
           arguments: {
             'x-queue-type': 'quorum',
-            'x-dead-letter-strategy': 'at-least-once',
-          },
+            'x-overflow': 'reject-publish',
+            'x-dead-letter-strategy': 'at-least-once'
+          }
         }
       ]);
     });
@@ -119,9 +119,9 @@ describe('Test DelayQueue', function() {
       stub.args.should.eql([[rabbit.consumeChannel, 'delay_quorum_reply', {
         arguments: {
           'x-queue-type': 'quorum',
+          'x-overflow': 'reject-publish',
           'x-dead-letter-strategy': 'at-least-once'
-        },
-        overflow: 'reject-publish'
+        }
       }]]);
     });
 
