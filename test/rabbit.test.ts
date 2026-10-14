@@ -385,6 +385,20 @@ describe('Test rabbit class', function() {
     process.listeners('SIGTERM').should.not.containEql(handler);
   });
 
+  it('should keep consumers on SIGTERM when cancelConsumersOnSigterm is false', async function() {
+    const stub = sandbox.stub(Queue.prototype, 'unsubscribe').resolves();
+    const listenersBefore = process.listeners('SIGTERM');
+
+    rabbit = new Rabbit(this.url, { cancelConsumersOnSigterm: false });
+    await rabbit.connected;
+    await rabbit.createQueue(randomUUID().toString(), { exclusive: true }, () => ({}));
+
+    const added = process.listeners('SIGTERM').filter(l => !listenersBefore.includes(l));
+    added.should.be.empty();
+    added.forEach(l => (l as () => void)());
+    stub.called.should.be.false();
+  });
+
   it('should call unsubscribe for all queues on SIGTERM', async function() {
     const stub = sandbox.stub(Queue.prototype, 'unsubscribe').resolves();
 

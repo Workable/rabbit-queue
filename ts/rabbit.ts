@@ -42,6 +42,7 @@ export default class Rabbit extends EventEmitter {
       defaultQueueType = undefined,
       scheduledPublishQueuesAsQuorum = false,
       tolerateQueueTypeMismatch = false,
+      cancelConsumersOnSigterm = true,
     }: {
       prefetch?: number
       replyPattern?: boolean
@@ -51,6 +52,7 @@ export default class Rabbit extends EventEmitter {
       defaultQueueType?: string
       scheduledPublishQueuesAsQuorum?: boolean
       tolerateQueueTypeMismatch?: boolean
+      cancelConsumersOnSigterm?: boolean
     } = {}
   ) {
     super();
@@ -70,7 +72,9 @@ export default class Rabbit extends EventEmitter {
     this.sigtermHandler = this.handleSigterm.bind(this);
     this.reconnect();
 
-    process.once('SIGTERM', this.sigtermHandler);
+    if (cancelConsumersOnSigterm) {
+      process.once('SIGTERM', this.sigtermHandler);
+    }
   }
 
   private async connect() {
