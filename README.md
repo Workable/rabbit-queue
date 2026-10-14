@@ -31,6 +31,7 @@ const rabbit = new Rabbit(process.env.RABBIT_URL || 'amqp://localhost', {
   scheduledPublishQueuesAsQuorum: false, //declare the publishWithDelay queues as quorum (see Scheduled publish queues as quorum)
   prefix: '', //prefix all queues with an application name
   tolerateQueueTypeMismatch: false, //consume an existing queue whose type or priority differs from the declared one (see Queue Type Behavior)
+  cancelConsumersOnSigterm: true, //cancel every consumer when the process receives SIGTERM (see Shutdown)
   socketOptions: {} // socketOptions will be passed as a second param to amqp.connect and from ther to the socket library (net or tls)
 });
 
@@ -280,10 +281,18 @@ Quorum queues need RabbitMQ 3.10 or later for per-message TTL and at-least-once 
 
 Messages already in a classic `delay_{expiration}` queue are still dead-lettered to `delay_reply`. Keep at least one consumer running without the option until the classic delay queues are empty, then delete them along with `delay_reply`.
 
+### Shutdown
+
+On `SIGTERM`, rabbit-queue cancels the consumers of every queue it created, so the process stops taking new messages while it shuts down. Set `cancelConsumersOnSigterm: false` when something else in the process has its own `SIGTERM` hook that waits on messages from these queues, e.g. eip-redis's PubSub waiting for throttled events that only complete when an eip-rabbit Timer queue delivers. With the consumers cancelled, that wait never ends and the process hangs until it is killed. On by default.
+```javascript
+const rabbit = new Rabbit(process.env.RABBIT_URL, { cancelConsumersOnSigterm: false });
+```
+
 ### Changelog
 
 ### New in v5.10.x
 
+- `cancelConsumersOnSigterm` option. Set it to `false` to keep consuming after `SIGTERM`, for processes that drain work through their own `SIGTERM` hook. On by default.
 - `scheduledPublishQueuesAsQuorum` option. When enabled, the internal queues used by `publishWithDelay` are declared as quorum queues, under new names (`delay_quorum_{expiration}`, `delay_quorum_reply`). Off by default.
 - Queue declares, binds and unbinds run on short-lived channels. One that fails still rejects, but no longer closes the shared consume channel and disconnects every consumer.
 - `tolerateQueueTypeMismatch` option. When enabled, a queue that already exists with a different type or priority (classic vs quorum, with or without `x-max-priority`) is consumed as it is, with a warning. Old and new pods can then run side by side during a rolling deploy that changes a queue's type or priority, e.g. while migrating classic mirrored queues to quorum. Off by default.

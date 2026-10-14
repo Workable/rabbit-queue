@@ -385,6 +385,15 @@ describe('Test rabbit class', function() {
     process.listeners('SIGTERM').should.not.containEql(handler);
   });
 
+  it('should not register sigtermHandler when cancelConsumersOnSigterm is false', async function() {
+    const listenersBefore = process.listeners('SIGTERM');
+    rabbit = new Rabbit(this.url, { cancelConsumersOnSigterm: false });
+    await rabbit.connected;
+
+    process.listeners('SIGTERM').should.eql(listenersBefore);
+    process.listeners('SIGTERM').should.not.containEql((rabbit as any).sigtermHandler);
+  });
+
   it('should call unsubscribe for all queues on SIGTERM', async function() {
     const stub = sandbox.stub(Queue.prototype, 'unsubscribe').resolves();
 
