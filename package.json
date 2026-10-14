@@ -1,6 +1,6 @@
 {
   "name": "rabbit-queue",
-  "version": "5.10.1",
+  "version": "5.11.0",
   "description": "AMQP/RabbitMQ queue management library.",
   "main": "js/index.js",
   "keywords": [
