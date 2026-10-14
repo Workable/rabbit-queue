@@ -290,9 +290,12 @@ const rabbit = new Rabbit(process.env.RABBIT_URL, { cancelConsumersOnSigterm: fa
 
 ### Changelog
 
-### New in v5.10.x
+### New in v5.11.x
 
 - `cancelConsumersOnSigterm` option. Set it to `false` to keep consuming after `SIGTERM`, for processes that drain work through their own `SIGTERM` hook. On by default.
+
+### New in v5.10.x
+
 - `scheduledPublishQueuesAsQuorum` option. When enabled, the internal queues used by `publishWithDelay` are declared as quorum queues, under new names (`delay_quorum_{expiration}`, `delay_quorum_reply`). Off by default.
 - Queue declares, binds and unbinds run on short-lived channels. One that fails still rejects, but no longer closes the shared consume channel and disconnects every consumer.
 - `tolerateQueueTypeMismatch` option. When enabled, a queue that already exists with a different type or priority (classic vs quorum, with or without `x-max-priority`) is consumed as it is, with a warning. Old and new pods can then run side by side during a rolling deploy that changes a queue's type or priority, e.g. while migrating classic mirrored queues to quorum. Off by default.

@@ -385,13 +385,18 @@ describe('Test rabbit class', function() {
     process.listeners('SIGTERM').should.not.containEql(handler);
   });
 
-  it('should not register sigtermHandler when cancelConsumersOnSigterm is false', async function() {
+  it('should keep consumers on SIGTERM when cancelConsumersOnSigterm is false', async function() {
+    const stub = sandbox.stub(Queue.prototype, 'unsubscribe').resolves();
     const listenersBefore = process.listeners('SIGTERM');
+
     rabbit = new Rabbit(this.url, { cancelConsumersOnSigterm: false });
     await rabbit.connected;
+    await rabbit.createQueue(randomUUID().toString(), { exclusive: true }, () => ({}));
 
-    process.listeners('SIGTERM').should.eql(listenersBefore);
-    process.listeners('SIGTERM').should.not.containEql((rabbit as any).sigtermHandler);
+    const added = process.listeners('SIGTERM').filter(l => !listenersBefore.includes(l));
+    added.should.be.empty();
+    added.forEach(l => (l as () => void)());
+    stub.called.should.be.false();
   });
 
   it('should call unsubscribe for all queues on SIGTERM', async function() {
