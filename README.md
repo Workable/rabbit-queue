@@ -293,6 +293,7 @@ const rabbit = new Rabbit(process.env.RABBIT_URL, { cancelConsumersOnSigterm: fa
 ### New in v5.11.x
 
 - `cancelConsumersOnSigterm` option. Set it to `false` to keep consuming after `SIGTERM`, for processes that drain work through their own `SIGTERM` hook. On by default.
+- v5.11.1: when only one of the two connections (consume or publish) dropped, reconnecting left the other one open, so its consumers kept running next to the ones created again on `connected`. The reconnect now closes it first, and one outage emits `disconnected` once instead of once per connection and channel.
 
 ### New in v5.10.x
 

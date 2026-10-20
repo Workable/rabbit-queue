@@ -20,6 +20,11 @@ export default class Rabbit extends EventEmitter {
   public lock: Promise<void>;
   public queues: { [s: string]: Queue } = {};
   public connecting = false;
+  private attempt: Promise<void>;
+  private connections = new Set<amqp.ChannelModel>();
+  private lossReported = false;
+  private attemptError: Error | null = null;
+  private closed = false;
   public prefetch: number;
   public replyPattern: boolean;
   public prefix: string;
@@ -77,35 +82,92 @@ export default class Rabbit extends EventEmitter {
     }
   }
 
-  private async connect() {
-    if (this.connecting) {
-      return;
+  private connect() {
+    if (!this.connecting) {
+      this.connecting = true;
+      this.attempt = this.openConnections();
     }
-    this.connecting = true;
-    this.consumeConnection = await amqp.connect(this.url, this.socketOptions);
-    this.consumeChannel = await this.createChannel(this.consumeConnection);
-    await this.initChannel(this.consumeChannel);
+    return this.attempt;
+  }
 
-    this.publishConnection = await amqp.connect(this.url, this.socketOptions);
-    this.publishChannel = await this.createChannel(this.publishConnection);
-    await this.initChannel(this.publishChannel, true);
-    this.emit('connected');
+  private async openConnections() {
+    // Losing either connection triggers a reconnect, so the one that survived is closed here: otherwise its
+    // consumers keep running next to the ones the handlers create again on "connected". Not awaited, so a
+    // half-open connection still waiting for its close-ok doesn't hold up the new pair.
+    this.closeAll(this.connections);
+    const connections = new Set<amqp.ChannelModel>();
+    this.connections = connections;
+    this.lossReported = false;
+    this.attemptError = null;
+
+    try {
+      const consumeConnection = await this.openConnection(connections);
+      const consumeChannel = await this.createChannel(consumeConnection);
+      await this.initChannel(consumeChannel);
+
+      const publishConnection = await this.openConnection(connections);
+      const publishChannel = await this.createChannel(publishConnection);
+      await this.initChannel(publishChannel, true);
+
+      if (this.attemptError) {
+        throw this.attemptError;
+      }
+      this.consumeConnection = consumeConnection;
+      this.consumeChannel = consumeChannel;
+      this.publishConnection = publishConnection;
+      this.publishChannel = publishChannel;
+    } catch (error) {
+      this.closeAll(connections);
+      this.connecting = false;
+      this.reportLoss(error);
+      throw error;
+    }
     this.connecting = false;
+    this.emit('connected');
   }
 
   async reconnect() {
+    this.closed = false;
     this.connected = this.connect();
-    await this.connected.catch(error => this.emitDisconnected(error));
+    await this.connected.catch(() => undefined);
   }
 
-  private emitDisconnected(error) {
-    this.connecting = false;
+  private async openConnection(connections: Set<amqp.ChannelModel>) {
+    const connection = await amqp.connect(this.url, this.socketOptions);
+    connections.add(connection);
+    if (this.closed) {
+      throw new Error('Rabbit was closed while connecting');
+    }
+    return connection;
+  }
+
+  private closeAll(connections: Iterable<amqp.ChannelModel>) {
+    return Promise.all([...connections].map(connection => connection.close().catch(() => undefined)));
+  }
+
+  private connectionLost(connection: amqp.ChannelModel, error) {
+    if (!this.connections.has(connection)) {
+      return;
+    }
+    if (this.connecting) {
+      this.attemptError = this.attemptError || error || new Error('Connection closed while connecting');
+      return;
+    }
+    this.reportLoss(error);
+  }
+
+  // One outage closes a connection and its channel, and may raise errors too: report it once.
+  private reportLoss(error) {
+    if (this.lossReported) {
+      return;
+    }
+    this.lossReported = true;
     this.emit('disconnected', error);
   }
 
   async createChannel(connection: amqp.ChannelModel) {
-    connection.once('close', error => this.emitDisconnected(error));
-    connection.on('error', error => this.emitDisconnected(error));
+    connection.once('close', error => this.connectionLost(connection, error));
+    connection.on('error', error => this.connectionLost(connection, error));
     const channel: Channel = await connection.createConfirmChannel();
     channel.channelModel = connection;
     return channel;
@@ -113,12 +175,12 @@ export default class Rabbit extends EventEmitter {
 
   async initChannel(channel: Channel, publish = false) {
     channel.prefetch(this.prefetch);
-    channel.on('close', error => this.emitDisconnected(error));
+    channel.on('close', error => this.connectionLost(channel.channelModel, error));
     if (!publish && this.replyPattern) {
-      await createReplyQueue(this.consumeChannel);
+      await createReplyQueue(channel);
     }
     if (!publish && this.scheduledPublish) {
-      await createDelayQueueReply(this.consumeChannel, this.updateName('delay'), this.scheduledPublishQueuesAsQuorum);
+      await createDelayQueueReply(channel, this.updateName('delay'), this.scheduledPublishQueuesAsQuorum);
     }
   }
 
@@ -262,9 +324,9 @@ export default class Rabbit extends EventEmitter {
 
   async close() {
     process.off('SIGTERM', this.sigtermHandler);
-
-    await this.consumeConnection.close();
-    await this.publishConnection.close();
+    this.closed = true;
+    // Covers a connect still in flight, whose connections aren't in consumeConnection/publishConnection yet.
+    await this.closeAll(this.connections);
   }
 
   private handleSigterm() {

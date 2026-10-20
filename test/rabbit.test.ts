@@ -55,6 +55,18 @@ describe('Test rabbit class', function() {
     });
   });
 
+  it('should not emit "connected" when closed while connecting', async function() {
+    rabbit = new Rabbit(this.url, { replyPattern: false });
+    const connected = sandbox.spy();
+    rabbit.on('connected', connected);
+
+    await rabbit.close();
+    await rabbit.connected.should.be.rejectedWith(/closed while connecting/);
+
+    connected.called.should.be.false();
+    rabbit = null;
+  });
+
   it('should call amqp connect with socketOptions', async function() {
     const connectStub = sandbox.spy(amqp, 'connect');
     rabbit = new Rabbit(this.url, { socketOptions: 'socketOptions' });
@@ -556,6 +568,91 @@ describe('Test rabbit class', function() {
       await rabbit.createQueue('amq.reserved').should.be.rejectedWith({ code: 403 });
       (await consumeOne({})).should.equal(JSON.stringify({ test: true }));
       disconnected.called.should.be.false();
+    });
+  });
+
+  describe('when one of the two connections drops', function() {
+    let admin: amqp.ChannelModel;
+    let queueName: string;
+
+    beforeEach(async function() {
+      admin = await amqp.connect(this.url);
+      queueName = `reconnect_${randomUUID()}`;
+      const channel = await admin.createChannel();
+      await channel.assertQueue(queueName, { durable: true });
+      await channel.close();
+    });
+
+    afterEach(async function() {
+      rabbit?.removeAllListeners('connected');
+      rabbit?.removeAllListeners('disconnected');
+      const channel = await admin.createChannel();
+      await channel.deleteQueue(queueName);
+      await admin.close();
+    });
+
+    async function consumerCount() {
+      const channel = await admin.createChannel();
+      const { consumerCount: count } = await channel.checkQueue(queueName);
+      await channel.close();
+      return count;
+    }
+
+    async function waitForConsumers(expected: number) {
+      for (let attempt = 0; attempt < 50 && (await consumerCount()) !== expected; attempt++) {
+        await new Promise(r => setTimeout(r, 20));
+      }
+      (await consumerCount()).should.equal(expected);
+    }
+
+    // What orka does: reconnect on every "disconnected" and create the handlers' queues again on "connected".
+    function resubscribeOnReconnect() {
+      rabbit.on('disconnected', () => setTimeout(() => rabbit.reconnect(), 10));
+      rabbit.on('connected', () => rabbit.createQueue(queueName, {}, () => ({})));
+    }
+
+    it('should keep one consumer per queue after the publish connection drops', async function() {
+      rabbit = new Rabbit(this.url, { replyPattern: false });
+      resubscribeOnReconnect();
+      await rabbit.connected;
+      await waitForConsumers(1);
+
+      const reconnected = new Promise(resolve => rabbit.once('connected', resolve));
+      await rabbit.publishConnection.close();
+      await reconnected;
+      await new Promise(r => setTimeout(r, 200));
+
+      (await consumerCount()).should.equal(1);
+    });
+
+    it('should close the surviving publish connection after the consume connection drops', async function() {
+      rabbit = new Rabbit(this.url, { replyPattern: false });
+      resubscribeOnReconnect();
+      await rabbit.connected;
+      await waitForConsumers(1);
+      const survivorClose = sandbox.spy(rabbit.publishConnection, 'close');
+
+      const reconnected = new Promise(resolve => rabbit.once('connected', resolve));
+      await rabbit.consumeConnection.close();
+      await reconnected;
+      await new Promise(r => setTimeout(r, 200));
+
+      survivorClose.called.should.be.true();
+      (await consumerCount()).should.equal(1);
+    });
+
+    it('should emit "disconnected" once when a connection and its channel close', async function() {
+      rabbit = new Rabbit(this.url, { replyPattern: false });
+      await rabbit.connected;
+      const disconnected = sandbox.spy();
+      rabbit.on('disconnected', disconnected);
+
+      await rabbit.publishConnection.close();
+      await new Promise(r => setTimeout(r, 100));
+
+      disconnected.callCount.should.equal(1);
+      await rabbit.consumeConnection.close();
+      rabbit = null;
     });
   });
 });
