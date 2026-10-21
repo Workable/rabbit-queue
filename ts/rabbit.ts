@@ -8,6 +8,9 @@ import Exchange from './exchange';
 import * as assert from 'assert';
 import getLogger from './logger';
 
+const RESUBSCRIBE_DELAY_MS = 1000;
+const MAX_RESUBSCRIBE_DELAY_MS = 15000;
+
 export default class Rabbit extends EventEmitter {
   static STOP_PROPAGATION = Queue.STOP_PROPAGATION;
   static STOP_STREAM = Queue.STOP_STREAM;
@@ -211,29 +214,73 @@ export default class Rabbit extends EventEmitter {
       tolerateQueueTypeMismatch: this.tolerateQueueTypeMismatch
     });
     this.queues[name] = queue;
+    queue.onCancel = () => this.resubscribe(queue, options.prefetch);
     await queue.created;
     this.logger.debug(`created queue ${name}`);
     if (handler) {
-      // Handle race condition. Another queue might be created at the same time with diferrent prefetch.
-      let localLock;
-      do {
-        localLock = this.lock;
-        await this.lock;
-        // More than one queues might be waiting to be created. Only one can pass this check.
-      } while (this.lock !== localLock);
-
-      if (this.prefetch !== options.prefetch) {
-        this.prefetch = options.prefetch;
-        this.lock = Promise.resolve(this.consumeChannel.prefetch(options.prefetch)).then(() =>
-          queue.subscribe(handler)
-        );
-        await this.lock;
-      } else {
-        this.lock = queue.subscribe(handler);
-        await this.lock;
-      }
+      await this.subscribeWithPrefetch(queue, handler, options.prefetch);
     }
     return queue;
+  }
+
+  private async subscribeWithPrefetch(queue: Queue, handler, prefetch: number, stillWanted = () => true) {
+    // Handle race condition. Another queue might be created at the same time with diferrent prefetch.
+    let localLock;
+    do {
+      localLock = this.lock;
+      await this.lock;
+      // More than one queues might be waiting to be created. Only one can pass this check.
+    } while (this.lock !== localLock);
+
+    if (!stillWanted()) {
+      return false;
+    }
+    if (this.prefetch !== prefetch) {
+      this.prefetch = prefetch;
+      this.lock = Promise.resolve(this.consumeChannel.prefetch(prefetch)).then(() => queue.subscribe(handler));
+    } else {
+      this.lock = queue.subscribe(handler);
+    }
+    await this.lock;
+    return true;
+  }
+
+  // The broker cancels a consumer when its queue is deleted, e.g. while the queue is converted to quorum. Waits for
+  // the queue to exist again instead of declaring it, so a consumer never recreates a queue someone is replacing.
+  // A queue that only this connection can declare (exclusive or server-named) won't come back, so it isn't awaited.
+  private async resubscribe(queue: Queue, prefetch: number) {
+    const handler = queue.handler;
+    if (!handler || !queue.name || queue.options.exclusive) {
+      return;
+    }
+    // Stops on unsubscribe, close() and connection loss (whose reconnect subscribes afresh), or once subscribed again.
+    const stillWanted = () =>
+      !this.closed &&
+      !this.lossReported &&
+      this.queues[queue.name] === queue &&
+      queue.channel === this.consumeChannel &&
+      queue.handler === handler &&
+      !queue.subscribed;
+    this.logger.warn(`Consumer for queue ${queue.name} was cancelled by the broker, subscribing again once it exists`);
+    let delay = RESUBSCRIBE_DELAY_MS;
+    while (stillWanted()) {
+      await new Promise(resolve => setTimeout(resolve, delay).unref());
+      delay = Math.min(delay * 2, MAX_RESUBSCRIBE_DELAY_MS);
+      try {
+        // A queue deleted again between the check and the consume closes the consume channel with a 404, and the
+        // reconnect that follows subscribes every queue afresh.
+        const subscribed =
+          stillWanted() &&
+          (await queue.exists()) &&
+          (await this.subscribeWithPrefetch(queue, handler, prefetch, stillWanted));
+        if (subscribed) {
+          this.logger.info(`Subscribed to queue ${queue.name} again`);
+          return;
+        }
+      } catch (error) {
+        this.logger.warn(`Failed to subscribe to queue ${queue.name} again: ${error.message}`);
+      }
+    }
   }
 
   async destroyQueue(name: string, prefix?: string) {

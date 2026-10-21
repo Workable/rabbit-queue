@@ -598,8 +598,8 @@ describe('Test rabbit class', function() {
       return count;
     }
 
-    async function waitForConsumers(expected: number) {
-      for (let attempt = 0; attempt < 50 && (await consumerCount()) !== expected; attempt++) {
+    async function waitForConsumers(expected: number, attempts = 50) {
+      for (let attempt = 0; attempt < attempts && (await consumerCount()) !== expected; attempt++) {
         await new Promise(r => setTimeout(r, 20));
       }
       (await consumerCount()).should.equal(expected);
@@ -639,6 +639,109 @@ describe('Test rabbit class', function() {
 
       survivorClose.called.should.be.true();
       (await consumerCount()).should.equal(1);
+    });
+
+    describe('when the broker cancels a consumer because its queue was deleted', function() {
+      this.timeout(10000);
+
+      async function replaceQueue(args: object, afterMs: number) {
+        const channel = await admin.createChannel();
+        await channel.deleteQueue(queueName);
+        await new Promise(r => setTimeout(r, afterMs));
+        await channel.assertQueue(queueName, { durable: true, arguments: args });
+        await channel.close();
+      }
+
+      async function queueExists() {
+        const channel = await admin.createChannel();
+        channel.on('error', () => undefined);
+        try {
+          await channel.checkQueue(queueName);
+          await channel.close();
+          return true;
+        } catch (error) {
+          return false;
+        }
+      }
+
+      it('should consume again once the queue is declared again', async function() {
+        rabbit = new Rabbit(this.url, { replyPattern: false });
+        const disconnected = sandbox.spy();
+        rabbit.on('disconnected', disconnected);
+        let onMessage: (content: string) => void;
+        const received = new Promise<string>(resolve => (onMessage = resolve));
+        await rabbit.createQueue(queueName, {}, (msg, ack) => {
+          ack();
+          onMessage(msg.content.toString());
+        });
+
+        await replaceQueue({ 'x-queue-type': 'quorum' }, 300);
+        await waitForConsumers(0);
+        await waitForConsumers(1, 250);
+        await rabbit.publish(queueName, { test: true });
+
+        (await received).should.equal(JSON.stringify({ test: true }));
+        (await consumerCount()).should.equal(1);
+        disconnected.called.should.be.false();
+      });
+
+      it('should wait for the queue instead of declaring it', async function() {
+        rabbit = new Rabbit(this.url, { replyPattern: false });
+        await rabbit.createQueue(queueName, {}, () => ({}));
+
+        const channel = await admin.createChannel();
+        await channel.deleteQueue(queueName);
+        await channel.close();
+        await new Promise(r => setTimeout(r, 1500));
+        (await queueExists()).should.be.false();
+
+        await replaceQueue({}, 0);
+        await waitForConsumers(1, 250);
+      });
+
+      it('should subscribe again with the queue\'s own prefetch', async function() {
+        rabbit = new Rabbit(this.url, { replyPattern: false });
+        await rabbit.createQueue(queueName, { prefetch: 5 }, () => ({}));
+        await rabbit.createQueue(`other_${randomUUID()}`, { exclusive: true, prefetch: 1 }, () => ({}));
+        const prefetch = sandbox.spy(rabbit.consumeChannel, 'prefetch');
+
+        await replaceQueue({}, 0);
+        await waitForConsumers(1, 250);
+
+        (await consumerCount()).should.equal(1);
+        prefetch.calledWith(5).should.be.true();
+      });
+
+      it('should not subscribe again after unsubscribing', async function() {
+        rabbit = new Rabbit(this.url, { replyPattern: false });
+        await rabbit.createQueue(queueName, {}, () => ({}));
+
+        const channel = await admin.createChannel();
+        await channel.deleteQueue(queueName);
+        await channel.close();
+        await rabbit.unsubscribe(queueName);
+        await replaceQueue({}, 0);
+        await new Promise(r => setTimeout(r, 1500));
+
+        (await consumerCount()).should.equal(0);
+      });
+
+      it('should not subscribe again when unsubscribed while subscribing again', async function() {
+        rabbit = new Rabbit(this.url, { replyPattern: false });
+        const queue = await rabbit.createQueue(queueName, {}, () => ({}));
+        const exists = queue.exists.bind(queue);
+        sandbox.stub(queue, 'exists').callsFake(async () => {
+          const found = await exists();
+          await rabbit.unsubscribe(queueName);
+          return found;
+        });
+
+        await replaceQueue({}, 0);
+        await new Promise(r => setTimeout(r, 1500));
+
+        (queue.exists as sinon.SinonStub).called.should.be.true();
+        (await consumerCount()).should.equal(0);
+      });
     });
 
     it('should emit "disconnected" once when a connection and its channel close', async function() {

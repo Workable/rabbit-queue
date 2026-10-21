@@ -8,6 +8,7 @@ import { encode } from './encode-decode';
 import getLogger from './logger';
 
 const logger = getLogger('rabbit-queue');
+const NOT_FOUND = 404;
 const PRECONDITION_FAILED = 406;
 // What changes when a queue moves between classic and quorum: quorum queues have no x-max-priority.
 const TOLERATED_MISMATCHES = ['x-queue-type', 'x-max-priority'];
@@ -76,6 +77,7 @@ export default class Queue {
   public options: QueueOptions;
   public created: Promise<any>;
   public handler: Function;
+  public onCancel?: () => void;
   private tag: amqp.Replies.Consume;
 
   constructor(public channel: Channel, public name: string, options: QueueOptions) {
@@ -150,10 +152,20 @@ export default class Queue {
     }
   }
 
+  get subscribed() {
+    return !!this.tag;
+  }
+
   async subscribe(handler: (msg: any, ack: (error?, reply?) => any) => any) {
     await this.created;
     this.handler = handler;
-    this.tag = await this.channel.consume(this.name, this.onMessage.bind(this), { noAck: this.options.noAck });
+    const tag = await this.channel.consume(this.name, this.onMessage.bind(this), { noAck: this.options.noAck });
+    // An unsubscribe while the consume was in flight found no tag to cancel.
+    if (this.handler !== handler) {
+      await this.channel.cancel(tag.consumerTag);
+      return;
+    }
+    this.tag = tag;
   }
 
   async unsubscribe() {
@@ -162,6 +174,18 @@ export default class Queue {
     }
     this.handler = null;
     this.tag = null;
+  }
+
+  async exists() {
+    try {
+      await withDeclareChannel(this.channel, this.name, channel => channel.checkQueue(this.name));
+      return true;
+    } catch (error) {
+      if (error.code === NOT_FOUND) {
+        return false;
+      }
+      throw error;
+    }
   }
 
   static async destroy(channel: Channel, name: string) {
@@ -178,7 +202,10 @@ export default class Queue {
         this.channel.ack(msg);
       }
     };
+    // amqplib passes null only when the broker cancels the consumer, e.g. because the queue was deleted.
     if (!msg) {
+      this.tag = null;
+      this.onCancel?.();
       return;
     }
     this.handler(msg, async (error, reply) => {
