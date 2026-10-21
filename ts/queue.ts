@@ -156,16 +156,38 @@ export default class Queue {
     return !!this.tag;
   }
 
+  // Resolves to whether the consumer is running: an unsubscribe or a broker cancel can land before the consume resolves.
   async subscribe(handler: (msg: any, ack: (error?, reply?) => any) => any) {
     await this.created;
     this.handler = handler;
-    const tag = await this.channel.consume(this.name, this.onMessage.bind(this), { noAck: this.options.noAck });
-    // An unsubscribe while the consume was in flight found no tag to cancel.
+    let tag: amqp.Replies.Consume;
+    let cancelled = false;
+    // amqplib calls back with null only when the broker cancels the consumer, e.g. because the queue was deleted.
+    // A callback per consume tells this consumer's cancel apart from an older one's.
+    const onMessage = (msg: amqp.Message) => {
+      if (msg) {
+        return this.onMessage(msg);
+      }
+      cancelled = true;
+      if (tag && this.tag === tag) {
+        this.tag = null;
+        this.onCancel?.();
+      }
+    };
+    tag = await this.channel.consume(this.name, onMessage, { noAck: this.options.noAck });
     if (this.handler !== handler) {
-      await this.channel.cancel(tag.consumerTag);
-      return;
+      // The unsubscribe found no tag to cancel.
+      if (!cancelled) {
+        await this.channel.cancel(tag.consumerTag);
+      }
+      return false;
+    }
+    if (cancelled) {
+      this.onCancel?.();
+      return false;
     }
     this.tag = tag;
+    return true;
   }
 
   async unsubscribe() {
@@ -202,10 +224,14 @@ export default class Queue {
         this.channel.ack(msg);
       }
     };
-    // amqplib passes null only when the broker cancels the consumer, e.g. because the queue was deleted.
     if (!msg) {
-      this.tag = null;
-      this.onCancel?.();
+      return;
+    }
+    // Deliveries can arrive between the consume-ok and an unsubscribe cancelling it; hand them back to the broker.
+    if (!this.handler) {
+      if (!this.options.noAck) {
+        this.channel.nack(msg, false, true);
+      }
       return;
     }
     this.handler(msg, async (error, reply) => {
