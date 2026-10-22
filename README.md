@@ -295,6 +295,7 @@ const rabbit = new Rabbit(process.env.RABBIT_URL, { cancelConsumersOnSigterm: fa
 ### New in v5.12.x
 
 - A consumer the broker cancels, e.g. because its queue was deleted, subscribes again once the queue exists again, with the queue's own prefetch. Before, it stayed cancelled until the process restarted or reconnected. `destroyQueue` now unsubscribes the queue before deleting it.
+- `prefetch` stays the default for queues created without their own. Before, subscribing a queue with its own prefetch made it the default for every queue created after it, e.g. again after a reconnect.
 
 ### New in v5.11.x
 

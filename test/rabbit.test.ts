@@ -138,6 +138,23 @@ describe('Test rabbit class', function() {
     stub.calledWith(handler).should.be.true();
   });
 
+  it('should use the default prefetch for a queue created after one with its own', async function() {
+    rabbit = new Rabbit(this.url, { prefetch: 10, replyPattern: false });
+    await rabbit.createQueue(`own_${randomUUID()}`, { exclusive: true, prefetch: 5 }, () => ({}));
+    const name = `default_${randomUUID()}`;
+    let delivered = 0;
+    await rabbit.createQueue(name, { exclusive: true }, () => delivered++);
+
+    for (let i = 0; i < 10; i++) {
+      await rabbit.publish(name, { i });
+    }
+    for (let attempt = 0; attempt < 50 && delivered < 10; attempt++) {
+      await new Promise(r => setTimeout(r, 20));
+    }
+
+    delivered.should.equal(10);
+  });
+
   it('should create queue with max priority when priority is specified', async function() {
     const subscription = sandbox.stub(Queue.prototype, 'subscribe');
     rabbit = new Rabbit(this.url);
@@ -877,6 +894,19 @@ describe('Test rabbit class', function() {
         warn.called.should.be.false();
         queue.subscribed.should.be.false();
         (await consumerCount()).should.equal(0);
+      });
+
+      it('should destroy a queue created before a reconnect', async function() {
+        rabbit = new Rabbit(this.url, { replyPattern: false });
+        rabbit.on('disconnected', () => setTimeout(() => rabbit.reconnect(), 10));
+        await rabbit.createQueue(queueName, {}, () => ({}));
+        const reconnected = new Promise(resolve => rabbit.once('connected', resolve));
+        await rabbit.consumeConnection.close();
+        await reconnected;
+
+        await rabbit.destroyQueue(queueName);
+
+        (await queueExists()).should.be.false();
       });
     });
 

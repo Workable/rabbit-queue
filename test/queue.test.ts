@@ -160,15 +160,46 @@ describe('Test Queue class', function () {
     this.spyCancel.calledWith(consumerTag).should.be.true();
   });
 
+  it('should not consume when unsubscribed while waiting for the queue', async function () {
+    const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true });
+    queue.created = queue.created.then(() => queue.unsubscribe());
+
+    (await queue.subscribe(() => ({}))).should.be.false();
+
+    queue.subscribed.should.be.false();
+  });
+
   it('should hand deliveries back when there is no handler', async function () {
     const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true });
     await queue.created;
     const nack = sandbox.stub(rabbit.consumeChannel, 'nack');
-    const msg = { content: Buffer.from('{}'), properties: { headers: {} }, fields: {} } as any;
+    const fields = {
+      consumerTag: 'amq.ctag-orphan',
+      deliveryTag: 1,
+      redelivered: false,
+      exchange: '',
+      routingKey: this.name
+    };
+    const msg = { content: Buffer.from('{}'), properties: { headers: {} }, fields } as any;
 
     queue.onMessage(msg);
 
     nack.calledOnceWith(msg, false, true).should.be.true();
+  });
+
+  it('should cancel a consumer a second subscribe left behind once it gets a message', async function () {
+    const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true });
+    await queue.subscribe(() => ({}));
+    await queue.subscribe(() => ({}));
+    await queue.unsubscribe();
+    const consumerCount = async () => (await rabbit.consumeChannel.checkQueue(this.name)).consumerCount;
+
+    await rabbit.publish(this.name, {});
+    for (let attempt = 0; attempt < 50 && (await consumerCount()) !== 0; attempt++) {
+      await new Promise(r => setTimeout(r, 20));
+    }
+
+    (await consumerCount()).should.equal(0);
   });
 
   it('should tell whether the queue exists', async function () {

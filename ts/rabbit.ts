@@ -246,15 +246,10 @@ export default class Rabbit extends EventEmitter {
     if (!stillWanted()) {
       return false;
     }
-    let subscribing: Promise<boolean>;
-    if (this.prefetch !== prefetch) {
-      this.prefetch = prefetch;
-      subscribing = Promise.resolve(this.consumeChannel.prefetch(prefetch)).then(
-        () => stillWanted() && queue.subscribe(handler)
-      );
-    } else {
-      subscribing = Promise.resolve(queue.subscribe(handler));
-    }
+    // Set on every subscribe: this.prefetch is the default for queues without their own, not the channel's current one.
+    const subscribing = Promise.resolve(this.consumeChannel.prefetch(prefetch)).then(
+      () => stillWanted() && queue.subscribe(handler)
+    );
     // The lock only orders subscribes: one that fails mustn't fail every one after it, even after a reconnect.
     this.lock = subscribing.then(
       () => undefined,
@@ -323,8 +318,12 @@ export default class Rabbit extends EventEmitter {
   async destroyQueue(name: string, prefix?: string) {
     name = this.updateName(name, prefix);
     await this.connected;
+    const queue = this.queues[name];
     // Deleting the queue would make the broker cancel our own consumer, which would then wait for the queue to come back.
-    await this.queues[name]?.unsubscribe();
+    // A queue from before a reconnect is on a closed channel, with no consumer left to cancel.
+    if (queue?.channel === this.consumeChannel) {
+      await queue.unsubscribe();
+    }
     await Queue.destroy(this.consumeChannel, name);
   }
 

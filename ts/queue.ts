@@ -158,8 +158,9 @@ export default class Queue {
 
   // Resolves to whether the consumer is running: an unsubscribe or a broker cancel can land before the consume resolves.
   async subscribe(handler: (msg: any, ack: (error?, reply?) => any) => any) {
-    await this.created;
+    // Before any await, so the check after the consume also catches an unsubscribe while the queue is being created.
     this.handler = handler;
+    await this.created;
     let tag: amqp.Replies.Consume;
     let cancelled = false;
     // amqplib calls back with null only when the broker cancels the consumer, e.g. because the queue was deleted.
@@ -232,6 +233,8 @@ export default class Queue {
       if (!this.options.noAck) {
         this.channel.nack(msg, false, true);
       }
+      // A consumer a second subscribe left behind would otherwise keep getting the message back.
+      this.channel.cancel(msg.fields.consumerTag).catch(() => undefined);
       return;
     }
     this.handler(msg, async (error, reply) => {
