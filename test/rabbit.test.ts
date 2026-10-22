@@ -124,6 +124,7 @@ describe('Test rabbit class', function() {
     const prefetchAtSubscribe = {};
     stub.callsFake(async function() {
       prefetchAtSubscribe[this.name] = spy.lastCall.args[0];
+      return true;
     });
     const handler = () => ({});
     let promises = [];
@@ -135,6 +136,23 @@ describe('Test rabbit class', function() {
     prefetchAtSubscribe.should.eql({ [this.name]: 20, [this.name2]: 15, [this.name3]: 10, [this.name4]: 10 });
     rabbit.queues[this.name].name.should.equal(this.name);
     stub.calledWith(handler).should.be.true();
+  });
+
+  it('should use the default prefetch for a queue created after one with its own', async function() {
+    rabbit = new Rabbit(this.url, { prefetch: 10, replyPattern: false });
+    await rabbit.createQueue(`own_${randomUUID()}`, { exclusive: true, prefetch: 5 }, () => ({}));
+    const name = `default_${randomUUID()}`;
+    let delivered = 0;
+    await rabbit.createQueue(name, { exclusive: true }, () => delivered++);
+
+    for (let i = 0; i < 10; i++) {
+      await rabbit.publish(name, { i });
+    }
+    for (let attempt = 0; attempt < 50 && delivered < 10; attempt++) {
+      await new Promise(r => setTimeout(r, 20));
+    }
+
+    delivered.should.equal(10);
   });
 
   it('should create queue with max priority when priority is specified', async function() {
@@ -593,13 +611,21 @@ describe('Test rabbit class', function() {
 
     async function consumerCount() {
       const channel = await admin.createChannel();
-      const { consumerCount: count } = await channel.checkQueue(queueName);
-      await channel.close();
-      return count;
+      channel.on('error', () => undefined);
+      try {
+        const { consumerCount: count } = await channel.checkQueue(queueName);
+        await channel.close();
+        return count;
+      } catch (error) {
+        if (error.code === 404) {
+          return 0;
+        }
+        throw error;
+      }
     }
 
-    async function waitForConsumers(expected: number) {
-      for (let attempt = 0; attempt < 50 && (await consumerCount()) !== expected; attempt++) {
+    async function waitForConsumers(expected: number, attempts = 50) {
+      for (let attempt = 0; attempt < attempts && (await consumerCount()) !== expected; attempt++) {
         await new Promise(r => setTimeout(r, 20));
       }
       (await consumerCount()).should.equal(expected);
@@ -639,6 +665,249 @@ describe('Test rabbit class', function() {
 
       survivorClose.called.should.be.true();
       (await consumerCount()).should.equal(1);
+    });
+
+    describe('when the broker cancels a consumer because its queue was deleted', function() {
+      this.timeout(10000);
+
+      async function waitUntil(condition: () => boolean | Promise<boolean>, timeoutMs = 5000) {
+        const deadline = Date.now() + timeoutMs;
+        while (!(await condition()) && Date.now() < deadline) {
+          await new Promise(r => setTimeout(r, 20));
+        }
+        (await condition()).should.be.true();
+      }
+
+      async function deleteQueue() {
+        const channel = await admin.createChannel();
+        await channel.deleteQueue(queueName);
+        await channel.close();
+      }
+
+      async function declareQueue(args: object = {}) {
+        const channel = await admin.createChannel();
+        await channel.assertQueue(queueName, { durable: true, arguments: args });
+        await channel.close();
+      }
+
+      async function queueExists() {
+        const channel = await admin.createChannel();
+        channel.on('error', () => undefined);
+        try {
+          await channel.checkQueue(queueName);
+          await channel.close();
+          return true;
+        } catch (error) {
+          return false;
+        }
+      }
+
+      async function consumeAgain(queue: Queue) {
+        await deleteQueue();
+        await waitUntil(() => !queue.subscribed);
+        await declareQueue();
+        await waitUntil(async () => (await consumerCount()) === 1);
+      }
+
+      it('should consume again once the queue is declared again', async function() {
+        rabbit = new Rabbit(this.url, { replyPattern: false });
+        const disconnected = sandbox.spy();
+        rabbit.on('disconnected', disconnected);
+        let onMessage: (content: string) => void;
+        const received = new Promise<string>(resolve => (onMessage = resolve));
+        await rabbit.createQueue(queueName, {}, (msg, ack) => {
+          ack();
+          onMessage(msg.content.toString());
+        });
+
+        await deleteQueue();
+        await new Promise(r => setTimeout(r, 300));
+        await declareQueue({ 'x-queue-type': 'quorum' });
+        await waitUntil(async () => (await consumerCount()) === 1);
+        await rabbit.publish(queueName, { test: true });
+
+        (await received).should.equal(JSON.stringify({ test: true }));
+        disconnected.called.should.be.false();
+      });
+
+      it('should consume again after every cancel', async function() {
+        rabbit = new Rabbit(this.url, { replyPattern: false });
+        const queue = await rabbit.createQueue(queueName, {}, () => ({}));
+
+        await consumeAgain(queue);
+        await consumeAgain(queue);
+
+        queue.subscribed.should.be.true();
+      });
+
+      it('should wait for the queue instead of declaring it', async function() {
+        rabbit = new Rabbit(this.url, { replyPattern: false });
+        const disconnected = sandbox.spy();
+        rabbit.on('disconnected', disconnected);
+        await rabbit.createQueue(queueName, {}, () => ({}));
+
+        await deleteQueue();
+        await new Promise(r => setTimeout(r, 1500));
+        (await queueExists()).should.be.false();
+
+        await declareQueue();
+        await waitUntil(async () => (await consumerCount()) === 1);
+        disconnected.called.should.be.false();
+      });
+
+      it('should subscribe again with the queue\'s own prefetch', async function() {
+        rabbit = new Rabbit(this.url, { replyPattern: false });
+        const queue = await rabbit.createQueue(queueName, { prefetch: 5 }, () => ({}));
+        await rabbit.createQueue(`other_${randomUUID()}`, { exclusive: true, prefetch: 1 }, () => ({}));
+        const prefetch = sandbox.spy(rabbit.consumeChannel, 'prefetch');
+
+        await consumeAgain(queue);
+
+        prefetch.calledWith(5).should.be.true();
+      });
+
+      it('should not subscribe again after unsubscribing', async function() {
+        rabbit = new Rabbit(this.url, { replyPattern: false });
+        const queue = await rabbit.createQueue(queueName, {}, () => ({}));
+        const exists = sandbox.spy(queue, 'exists');
+
+        await deleteQueue();
+        await waitUntil(() => !queue.subscribed);
+        await rabbit.unsubscribe(queueName);
+        await declareQueue();
+        await new Promise(r => setTimeout(r, 1500));
+
+        exists.called.should.be.false();
+        (await consumerCount()).should.equal(0);
+      });
+
+      it('should not subscribe again when unsubscribed while checking the queue', async function() {
+        rabbit = new Rabbit(this.url, { replyPattern: false });
+        const queue = await rabbit.createQueue(queueName, {}, () => ({}));
+        const exists = queue.exists.bind(queue);
+        let checked: () => void;
+        const wasChecked = new Promise<void>(resolve => (checked = resolve));
+        sandbox.stub(queue, 'exists').callsFake(async () => {
+          const found = await exists();
+          await rabbit.unsubscribe(queueName);
+          checked();
+          return found;
+        });
+
+        await deleteQueue();
+        await declareQueue();
+        await wasChecked;
+        await new Promise(r => setTimeout(r, 200));
+
+        (await consumerCount()).should.equal(0);
+      });
+
+      it('should not subscribe again when unsubscribed while setting the prefetch', async function() {
+        rabbit = new Rabbit(this.url, { replyPattern: false });
+        await rabbit.createQueue(queueName, { prefetch: 5 }, () => ({}));
+        await rabbit.createQueue(`other_${randomUUID()}`, { exclusive: true, prefetch: 1 }, () => ({}));
+        const prefetch = rabbit.consumeChannel.prefetch.bind(rabbit.consumeChannel);
+        let prefetched: () => void;
+        const wasPrefetched = new Promise<void>(resolve => (prefetched = resolve));
+        sandbox.stub(rabbit.consumeChannel, 'prefetch').callsFake(async (count: number) => {
+          const result = await prefetch(count);
+          await rabbit.unsubscribe(queueName);
+          prefetched();
+          return result;
+        });
+
+        await deleteQueue();
+        await declareQueue();
+        await wasPrefetched;
+        await new Promise(r => setTimeout(r, 200));
+
+        (await consumerCount()).should.equal(0);
+      });
+
+      it('should create queues again after a subscribe failed and the app reconnected', async function() {
+        rabbit = new Rabbit(this.url, { replyPattern: false });
+        resubscribeOnReconnect();
+        await rabbit.connected;
+        await waitForConsumers(1);
+        const queue = rabbit.queues[queueName];
+        // The queue is deleted again between the check and the consume: the consume fails with a 404.
+        sandbox.stub(queue, 'exists').resolves(true);
+        const reconnected = new Promise(resolve => rabbit.once('connected', resolve));
+
+        await deleteQueue();
+        await reconnected;
+
+        await waitUntil(async () => (await consumerCount()) === 1);
+      });
+
+      it('should stop waiting on close()', async function() {
+        rabbit = new Rabbit(this.url, { replyPattern: false });
+        const queue = await rabbit.createQueue(queueName, {}, () => ({}));
+        const exists = sandbox.spy(queue, 'exists');
+
+        await deleteQueue();
+        await waitUntil(() => !queue.subscribed);
+        await rabbit.close();
+        rabbit = null;
+        await new Promise(r => setTimeout(r, 1500));
+
+        exists.called.should.be.false();
+      });
+
+      it('should stop waiting when the connection is lost', async function() {
+        rabbit = new Rabbit(this.url, { replyPattern: false });
+        const queue = await rabbit.createQueue(queueName, {}, () => ({}));
+        const exists = sandbox.spy(queue, 'exists');
+
+        await deleteQueue();
+        await waitUntil(() => !queue.subscribed);
+        await rabbit.consumeConnection.close();
+        await new Promise(r => setTimeout(r, 1500));
+
+        exists.called.should.be.false();
+      });
+
+      it('should log an error and not wait for an exclusive queue', async function() {
+        rabbit = new Rabbit(this.url, { replyPattern: false });
+        const name = `exclusive_${randomUUID()}`;
+        const queue = await rabbit.createQueue(name, { exclusive: true }, () => ({}));
+        const exists = sandbox.spy(queue, 'exists');
+        const error = sandbox.spy(rabbit.logger, 'error');
+
+        await rabbit.consumeChannel.deleteQueue(name);
+        await waitUntil(() => !queue.subscribed);
+        await new Promise(r => setTimeout(r, 1200));
+
+        error.calledWithMatch(/won't subscribe again/).should.be.true();
+        exists.called.should.be.false();
+      });
+
+      it('should not wait for a queue it destroyed itself', async function() {
+        rabbit = new Rabbit(this.url, { replyPattern: false });
+        const queue = await rabbit.createQueue(queueName, {}, () => ({}));
+        const warn = sandbox.spy(rabbit.logger, 'warn');
+
+        await rabbit.destroyQueue(queueName);
+        await declareQueue();
+        await new Promise(r => setTimeout(r, 1200));
+
+        warn.called.should.be.false();
+        queue.subscribed.should.be.false();
+        (await consumerCount()).should.equal(0);
+      });
+
+      it('should destroy a queue created before a reconnect', async function() {
+        rabbit = new Rabbit(this.url, { replyPattern: false });
+        rabbit.on('disconnected', () => setTimeout(() => rabbit.reconnect(), 10));
+        await rabbit.createQueue(queueName, {}, () => ({}));
+        const reconnected = new Promise(resolve => rabbit.once('connected', resolve));
+        await rabbit.consumeConnection.close();
+        await reconnected;
+
+        await rabbit.destroyQueue(queueName);
+
+        (await queueExists()).should.be.false();
+      });
     });
 
     it('should emit "disconnected" once when a connection and its channel close', async function() {

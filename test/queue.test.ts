@@ -111,6 +111,108 @@ describe('Test Queue class', function () {
     this.spyCancel.calledOnce.should.be.true();
   });
 
+  it('should call onCancel when the broker cancels the consumer', async function () {
+    const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true });
+    queue.onCancel = sandbox.spy();
+    (await queue.subscribe(() => ({}))).should.be.true();
+
+    await rabbit.consumeChannel.deleteQueue(this.name);
+    for (let attempt = 0; attempt < 50 && queue.subscribed; attempt++) {
+      await new Promise(r => setTimeout(r, 20));
+    }
+
+    queue.subscribed.should.be.false();
+    (queue.onCancel as sinon.SinonSpy).calledOnce.should.be.true();
+  });
+
+  it('should report a broker cancel that arrives before the consume resolves', async function () {
+    this.spyConsume.restore();
+    const consume = rabbit.consumeChannel.consume.bind(rabbit.consumeChannel);
+    sandbox.stub(rabbit.consumeChannel, 'consume').callsFake(async (name, onMessage, options) => {
+      const tag = await consume(name, onMessage, options);
+      onMessage(null);
+      return tag;
+    });
+    const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true });
+    queue.onCancel = sandbox.spy();
+
+    (await queue.subscribe(() => ({}))).should.be.false();
+
+    queue.subscribed.should.be.false();
+    (queue.onCancel as sinon.SinonSpy).calledOnce.should.be.true();
+  });
+
+  it('should cancel a consumer whose consume resolves after an unsubscribe', async function () {
+    this.spyConsume.restore();
+    const consume = rabbit.consumeChannel.consume.bind(rabbit.consumeChannel);
+    const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true });
+    let consumerTag: string;
+    sandbox.stub(rabbit.consumeChannel, 'consume').callsFake(async (name, onMessage, options) => {
+      const tag = await consume(name, onMessage, options);
+      consumerTag = tag.consumerTag;
+      await queue.unsubscribe();
+      return tag;
+    });
+
+    (await queue.subscribe(() => ({}))).should.be.false();
+
+    queue.subscribed.should.be.false();
+    this.spyCancel.calledWith(consumerTag).should.be.true();
+  });
+
+  it('should not consume when unsubscribed while waiting for the queue', async function () {
+    const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true });
+    queue.created = queue.created.then(() => queue.unsubscribe());
+
+    (await queue.subscribe(() => ({}))).should.be.false();
+
+    queue.subscribed.should.be.false();
+  });
+
+  it('should hand deliveries back when there is no handler', async function () {
+    const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true });
+    await queue.created;
+    const nack = sandbox.stub(rabbit.consumeChannel, 'nack');
+    const fields = {
+      consumerTag: 'amq.ctag-orphan',
+      deliveryTag: 1,
+      redelivered: false,
+      exchange: '',
+      routingKey: this.name
+    };
+    const msg = { content: Buffer.from('{}'), properties: { headers: {} }, fields } as any;
+
+    queue.onMessage(msg);
+
+    nack.calledOnceWith(msg, false, true).should.be.true();
+  });
+
+  it('should cancel a consumer a second subscribe left behind once it gets a message', async function () {
+    const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true });
+    await queue.subscribe(() => ({}));
+    await queue.subscribe(() => ({}));
+    await queue.unsubscribe();
+    const consumerCount = async () => (await rabbit.consumeChannel.checkQueue(this.name)).consumerCount;
+
+    await rabbit.publish(this.name, {});
+    for (let attempt = 0; attempt < 50 && (await consumerCount()) !== 0; attempt++) {
+      await new Promise(r => setTimeout(r, 20));
+    }
+
+    (await consumerCount()).should.equal(0);
+  });
+
+  it('should tell whether the queue exists', async function () {
+    const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true });
+    await queue.created;
+    (await queue.exists()).should.be.true();
+
+    const missing = new Queue(rabbit.consumeChannel, `missing_${Date.now()}`, { exclusive: true });
+    await missing.created;
+    await rabbit.consumeChannel.deleteQueue(missing.name);
+    (await missing.exists()).should.be.false();
+  });
+
   it('should destroy queue', async function () {
     const queue = new Queue(rabbit.consumeChannel, this.name, { exclusive: true });
     await queue.created;

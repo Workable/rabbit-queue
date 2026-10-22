@@ -8,6 +8,7 @@ import { encode } from './encode-decode';
 import getLogger from './logger';
 
 const logger = getLogger('rabbit-queue');
+const NOT_FOUND = 404;
 const PRECONDITION_FAILED = 406;
 // What changes when a queue moves between classic and quorum: quorum queues have no x-max-priority.
 const TOLERATED_MISMATCHES = ['x-queue-type', 'x-max-priority'];
@@ -76,6 +77,7 @@ export default class Queue {
   public options: QueueOptions;
   public created: Promise<any>;
   public handler: Function;
+  public onCancel?: () => void;
   private tag: amqp.Replies.Consume;
 
   constructor(public channel: Channel, public name: string, options: QueueOptions) {
@@ -150,10 +152,43 @@ export default class Queue {
     }
   }
 
+  get subscribed() {
+    return !!this.tag;
+  }
+
+  // Resolves to whether the consumer is running: an unsubscribe or a broker cancel can land before the consume resolves.
   async subscribe(handler: (msg: any, ack: (error?, reply?) => any) => any) {
-    await this.created;
+    // Before any await, so the check after the consume also catches an unsubscribe while the queue is being created.
     this.handler = handler;
-    this.tag = await this.channel.consume(this.name, this.onMessage.bind(this), { noAck: this.options.noAck });
+    await this.created;
+    let tag: amqp.Replies.Consume;
+    let cancelled = false;
+    // amqplib calls back with null only when the broker cancels the consumer, e.g. because the queue was deleted.
+    // A callback per consume tells this consumer's cancel apart from an older one's.
+    const onMessage = (msg: amqp.Message) => {
+      if (msg) {
+        return this.onMessage(msg);
+      }
+      cancelled = true;
+      if (tag && this.tag === tag) {
+        this.tag = null;
+        this.onCancel?.();
+      }
+    };
+    tag = await this.channel.consume(this.name, onMessage, { noAck: this.options.noAck });
+    if (this.handler !== handler) {
+      // The unsubscribe found no tag to cancel.
+      if (!cancelled) {
+        await this.channel.cancel(tag.consumerTag);
+      }
+      return false;
+    }
+    if (cancelled) {
+      this.onCancel?.();
+      return false;
+    }
+    this.tag = tag;
+    return true;
   }
 
   async unsubscribe() {
@@ -162,6 +197,18 @@ export default class Queue {
     }
     this.handler = null;
     this.tag = null;
+  }
+
+  async exists() {
+    try {
+      await withDeclareChannel(this.channel, this.name, channel => channel.checkQueue(this.name));
+      return true;
+    } catch (error) {
+      if (error.code === NOT_FOUND) {
+        return false;
+      }
+      throw error;
+    }
   }
 
   static async destroy(channel: Channel, name: string) {
@@ -179,6 +226,15 @@ export default class Queue {
       }
     };
     if (!msg) {
+      return;
+    }
+    // Deliveries can arrive between the consume-ok and an unsubscribe cancelling it; hand them back to the broker.
+    if (!this.handler) {
+      if (!this.options.noAck) {
+        this.channel.nack(msg, false, true);
+      }
+      // A consumer a second subscribe left behind would otherwise keep getting the message back.
+      this.channel.cancel(msg.fields.consumerTag).catch(() => undefined);
       return;
     }
     this.handler(msg, async (error, reply) => {

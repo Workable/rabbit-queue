@@ -205,8 +205,10 @@ describe('Test baseQueueHandler', function () {
       ack(null);
     });
 
-    await rabbit.publish(this.name, { test: 'data' }, { correlationId: '3' });
+    const originalPublish = handler.rabbit.publish.bind(handler.rabbit);
     const publish = sandbox.spy(handler.rabbit, 'publish');
+    // Spied before publishing: the handler can get the message before the publish is confirmed.
+    await originalPublish(this.name, { test: 'data' }, { correlationId: '3' });
     await new Promise(resolve => setTimeout(resolve, 100));
 
     afterDlq.calledOnce.should.be.true();
@@ -232,7 +234,6 @@ describe('Test baseQueueHandler', function () {
       ack(null);
     });
 
-    await rabbit.publish(this.name, { test: 'data' }, { correlationId: '5' });
     const originalPublish = handler.rabbit.publish.bind(handler.rabbit);
     let publishCallCount = 0;
     const publish = sandbox.stub(handler.rabbit, 'publish').callsFake((...args) => {
@@ -242,6 +243,8 @@ describe('Test baseQueueHandler', function () {
       }
       return originalPublish(...args);
     });
+    // Stubbed before publishing: the handler can get the message before the publish is confirmed.
+    await originalPublish(this.name, { test: 'data' }, { correlationId: '5' });
     await new Promise(resolve => setTimeout(resolve, 100));
 
     publish.calledTwice.should.be.true();

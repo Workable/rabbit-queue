@@ -270,6 +270,8 @@ While queues move between classic and quorum, old and new declares disagree on t
 const rabbit = new Rabbit(process.env.RABBIT_URL, { tolerateQueueTypeMismatch: true });
 ```
 
+Changing a queue's type means deleting it and declaring it again, and deleting a queue makes the broker cancel its consumers. rabbit-queue then subscribes again on its own, once the queue exists again: it checks every 1 s, backing off to every 15 s, and logs a warning every 5 minutes while it waits. It doesn't declare the queue while waiting, so it won't recreate a queue with the old arguments while someone is replacing it. It stops when the queue is unsubscribed, the connection is lost (your `connected` handler creates the queues again, as above) or `close()` is called. Exclusive and server-named queues belong to the connection, so nothing else will declare them again: their cancel is logged as an error instead. `destroyQueue` unsubscribes the queue first, so deleting your own queue doesn't start the wait.
+
 ### Scheduled publish queues as quorum
 
 `publishWithDelay` uses internal queues: a `delay_{expiration}` queue for each expiration, whose expired messages are dead-lettered to `delay_reply` and republished from there (both prefixed with `prefix_` when a prefix is set). They are declared without a queue type, so they get the virtual host's default type. With `scheduledPublishQueuesAsQuorum: true` they are declared as quorum queues, named `delay_quorum_{expiration}` and `delay_quorum_reply`, so they don't conflict with the existing classic ones. Off by default.
@@ -289,6 +291,11 @@ const rabbit = new Rabbit(process.env.RABBIT_URL, { cancelConsumersOnSigterm: fa
 ```
 
 ### Changelog
+
+### New in v5.12.x
+
+- A consumer the broker cancels, e.g. because its queue was deleted, subscribes again once the queue exists again, with the queue's own prefetch. Before, it stayed cancelled until the process restarted or reconnected. `destroyQueue` now unsubscribes the queue before deleting it.
+- `prefetch` stays the default for queues created without their own. Before, subscribing a queue with its own prefetch made it the default for every queue created after it, e.g. again after a reconnect.
 
 ### New in v5.11.x
 
