@@ -38,6 +38,7 @@ export default class Rabbit extends EventEmitter {
   private defaultQueueType: string | undefined;
   private scheduledPublishQueuesAsQuorum: boolean;
   private tolerateQueueTypeMismatch: boolean;
+  private resubscribeOnReconnect: boolean;
   public logger: ReturnType<typeof getLogger>;
   private readonly sigtermHandler: () => void;
 
@@ -53,6 +54,7 @@ export default class Rabbit extends EventEmitter {
       scheduledPublishQueuesAsQuorum = false,
       tolerateQueueTypeMismatch = false,
       cancelConsumersOnSigterm = true,
+      resubscribeOnReconnect = true,
     }: {
       prefetch?: number
       replyPattern?: boolean
@@ -63,6 +65,7 @@ export default class Rabbit extends EventEmitter {
       scheduledPublishQueuesAsQuorum?: boolean
       tolerateQueueTypeMismatch?: boolean
       cancelConsumersOnSigterm?: boolean
+      resubscribeOnReconnect?: boolean
     } = {}
   ) {
     super();
@@ -79,6 +82,7 @@ export default class Rabbit extends EventEmitter {
     this.defaultQueueType = defaultQueueType;
     this.scheduledPublishQueuesAsQuorum = scheduledPublishQueuesAsQuorum;
     this.tolerateQueueTypeMismatch = tolerateQueueTypeMismatch;
+    this.resubscribeOnReconnect = resubscribeOnReconnect;
     this.sigtermHandler = this.handleSigterm.bind(this);
     this.reconnect();
 
@@ -127,8 +131,63 @@ export default class Rabbit extends EventEmitter {
       this.reportLoss(error);
       throw error;
     }
+    // Before the rebind: a connection lost while it runs must emit 'disconnected'.
     this.connecting = false;
-    this.emit('connected');
+    if (this.resubscribeOnReconnect) {
+      await this.rebindQueues(this.consumeChannel);
+    }
+    // Lost again while the queues were rebinding: 'disconnected' went out already, and 'connected' would contradict it.
+    if (!this.lossReported && !this.closed) {
+      this.emit('connected');
+    }
+  }
+
+  // The queues belong to the channel they were created on, and a reconnect replaces it: without this, every consumer
+  // stays gone until the app creates its queues again, and an app that doesn't (orka's default) stops consuming
+  // while it still reports healthy. An app that does create them again on 'connected' replaces these consumers in
+  // createQueue, so none runs twice.
+  private async rebindQueues(consumeChannel: Channel) {
+    for (const queue of Object.values(this.queues)) {
+      if (queue.channel === consumeChannel) {
+        continue;
+      }
+      // A newer connection took over while this one was rebinding.
+      if (this.consumeChannel !== consumeChannel || this.lossReported || this.closed) {
+        return;
+      }
+      const handler = queue.handler;
+      const prefetch = queue.options.prefetch || this.prefetch;
+      // Server-named queues can't be declared again under the same name.
+      if (!queue.name) {
+        if (handler) {
+          this.logger.error(`Consumer for server-named queue won't subscribe again after the reconnect`);
+        }
+        continue;
+      }
+      try {
+        await queue.rebind(consumeChannel);
+        this.logger.debug(`rebound queue ${queue.name}`);
+      } catch (error) {
+        this.logger.error(`Rebinding queue ${queue.name} after the reconnect failed (${error.code}): ${error.message}`);
+        continue;
+      }
+      if (handler) {
+        try {
+          await this.subscribeWithPrefetch(queue, handler, prefetch);
+          this.logger.info(`Subscribed to queue ${queue.name} again after the reconnect`);
+        } catch (error) {
+          this.logger.warn(`Subscribing to queue ${queue.name} after the reconnect failed (${error.code}): ${error.message}`);
+          this.watchForResubscribe(queue, prefetch);
+        }
+      }
+    }
+  }
+
+  private watchForResubscribe(queue: Queue, prefetch: number) {
+    // Nothing awaits this; console in case the failure came from a 'log' listener.
+    this.resubscribe(queue, prefetch).catch(error =>
+      console.error(`[error] rabbit-queue Subscribing to queue ${queue.name} again failed`, error)
+    );
   }
 
   async reconnect() {
@@ -214,17 +273,18 @@ export default class Rabbit extends EventEmitter {
     options.prefetch = options.prefetch || this.prefetch;
     name = this.updateName(name, options.prefix);
     await this.connected;
+    // Creating the queue again with a handler replaces the consumer, e.g. the app's own 'connected' handler running
+    // after the queue was rebound on its own. The old one is cancelled first so the queue doesn't have two.
+    const previous = this.queues[name];
+    if (handler && previous?.handler && previous.channel === this.consumeChannel) {
+      await previous.unsubscribe();
+    }
     const queue = new Queue(this.consumeChannel, name, {
       ...options,
       tolerateQueueTypeMismatch: this.tolerateQueueTypeMismatch
     });
     this.queues[name] = queue;
-    queue.onCancel = () => {
-      // Nothing awaits this; console in case the failure came from a 'log' listener.
-      this.resubscribe(queue, options.prefetch).catch(error =>
-        console.error(`[error] rabbit-queue Subscribing to queue ${name} again failed`, error)
-      );
-    };
+    queue.onCancel = () => this.watchForResubscribe(queue, options.prefetch);
     await queue.created;
     this.logger.debug(`created queue ${name}`);
     if (handler) {

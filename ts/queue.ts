@@ -62,7 +62,7 @@ async function withDeclareChannel<T>(channel: Channel, queueName: string, declar
   }
 }
 
-export type QueueOptions = amqp.Options.AssertQueue & amqp.Options.Consume & { tolerateQueueTypeMismatch?: boolean };
+export type QueueOptions = amqp.Options.AssertQueue & amqp.Options.Consume & { tolerateQueueTypeMismatch?: boolean; prefetch?: number };
 
 export default class Queue {
   static STOP_PROPAGATION = { stopPropagation: true };
@@ -78,6 +78,7 @@ export default class Queue {
   public created: Promise<any>;
   public handler: Function;
   public onCancel?: () => void;
+  public bindings = new Map<string, { exchange: string; routingKey: string }>();
   private tag: amqp.Replies.Consume;
 
   constructor(public channel: Channel, public name: string, options: QueueOptions) {
@@ -154,6 +155,28 @@ export default class Queue {
 
   get subscribed() {
     return !!this.tag;
+  }
+
+  // Moves the queue to a new channel after a reconnect: the old channel took its consumer with it. The handler is kept,
+  // so the caller subscribes again. Declares the queue and its bindings again because a non-durable, exclusive or
+  // auto-delete queue doesn't survive the connection.
+  async rebind(channel: Channel) {
+    this.channel = channel;
+    this.tag = null;
+    this.created = this.create();
+    await this.created;
+    for (const { exchange, routingKey } of this.bindings.values()) {
+      await Queue.bindToExchange(exchange, routingKey, channel, this.name, this);
+    }
+  }
+
+  trackBinding(exchange: string, routingKey: string, bound: boolean) {
+    const key = `${exchange}\u0000${routingKey}`;
+    if (bound) {
+      this.bindings.set(key, { exchange, routingKey });
+    } else {
+      this.bindings.delete(key);
+    }
   }
 
   // Resolves to whether the consumer is running: an unsubscribe or a broker cancel can land before the consume resolves.
@@ -337,6 +360,7 @@ export default class Queue {
       await queue.created;
     }
     await withDeclareChannel(channel, name, declareChannel => declareChannel.bindQueue(name, exchange, routingKey));
+    queue?.trackBinding(exchange, routingKey, true);
     logger.debug(`created binding ${exchange} routingkey:${routingKey} --> queue:${name}`);
   }
 
@@ -345,6 +369,7 @@ export default class Queue {
       await queue.created;
     }
     await withDeclareChannel(channel, name, declareChannel => declareChannel.unbindQueue(name, exchange, routingKey));
+    queue?.trackBinding(exchange, routingKey, false);
     logger.debug(`deleted binding${exchange} routingkey:${routingKey} -X-> queue:${name}}`);
   }
 }
