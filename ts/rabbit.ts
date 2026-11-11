@@ -38,6 +38,7 @@ export default class Rabbit extends EventEmitter {
   private defaultQueueType: string | undefined;
   private scheduledPublishQueuesAsQuorum: boolean;
   private tolerateQueueTypeMismatch: boolean;
+  private resubscribeOnReconnect: boolean;
   public logger: ReturnType<typeof getLogger>;
   private readonly sigtermHandler: () => void;
 
@@ -53,6 +54,7 @@ export default class Rabbit extends EventEmitter {
       scheduledPublishQueuesAsQuorum = false,
       tolerateQueueTypeMismatch = false,
       cancelConsumersOnSigterm = true,
+      resubscribeOnReconnect = true,
     }: {
       prefetch?: number
       replyPattern?: boolean
@@ -63,6 +65,7 @@ export default class Rabbit extends EventEmitter {
       scheduledPublishQueuesAsQuorum?: boolean
       tolerateQueueTypeMismatch?: boolean
       cancelConsumersOnSigterm?: boolean
+      resubscribeOnReconnect?: boolean
     } = {}
   ) {
     super();
@@ -79,6 +82,7 @@ export default class Rabbit extends EventEmitter {
     this.defaultQueueType = defaultQueueType;
     this.scheduledPublishQueuesAsQuorum = scheduledPublishQueuesAsQuorum;
     this.tolerateQueueTypeMismatch = tolerateQueueTypeMismatch;
+    this.resubscribeOnReconnect = resubscribeOnReconnect;
     this.sigtermHandler = this.handleSigterm.bind(this);
     this.reconnect();
 
@@ -129,7 +133,9 @@ export default class Rabbit extends EventEmitter {
     }
     // Before the rebind: a connection lost while it runs must emit 'disconnected'.
     this.connecting = false;
-    await this.rebindQueues(this.consumeChannel);
+    if (this.resubscribeOnReconnect) {
+      await this.rebindQueues(this.consumeChannel);
+    }
     // Lost again while the queues were rebinding: 'disconnected' went out already, and 'connected' would contradict it.
     if (!this.lossReported && !this.closed) {
       this.emit('connected');

@@ -699,6 +699,31 @@ describe('Test rabbit class', function() {
         received[0].should.containEql('after');
       });
 
+      it('should leave the queues alone when resubscribeOnReconnect is false', async function() {
+        rabbit = new Rabbit(this.url, { replyPattern: false, resubscribeOnReconnect: false });
+        reconnectOnDisconnect();
+        await rabbit.createQueue(queueName, {}, (msg, ack) => ack());
+        await waitForConsumers(1);
+
+        await dropConnections([rabbit.consumeConnection]);
+        await new Promise(r => setTimeout(r, 200));
+
+        (await consumerCount()).should.equal(0);
+      });
+
+      it('should still create the queues again on "connected" when resubscribeOnReconnect is false', async function() {
+        rabbit = new Rabbit(this.url, { replyPattern: false, resubscribeOnReconnect: false });
+        resubscribeOnReconnect();
+        await rabbit.connected;
+        await waitForConsumers(1);
+
+        await dropConnections([rabbit.consumeConnection]);
+        await waitForConsumers(1);
+        await new Promise(r => setTimeout(r, 200));
+
+        (await consumerCount()).should.equal(1);
+      });
+
       it('should subscribe again when only the consume connection drops', async function() {
         rabbit = new Rabbit(this.url, { replyPattern: false });
         reconnectOnDisconnect();
