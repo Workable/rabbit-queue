@@ -667,6 +667,135 @@ describe('Test rabbit class', function() {
       (await consumerCount()).should.equal(1);
     });
 
+    describe('when the app does not create its queues again on "connected"', function() {
+      function reconnectOnDisconnect() {
+        rabbit.on('disconnected', () => setTimeout(() => rabbit.reconnect(), 10));
+      }
+
+      async function dropConnections(connections: amqp.ChannelModel[]) {
+        const reconnected = new Promise(resolve => rabbit.once('connected', resolve));
+        await Promise.all(connections.map(connection => connection.close()));
+        await reconnected;
+      }
+
+      it('should subscribe again after both connections drop', async function() {
+        const received = [];
+        rabbit = new Rabbit(this.url, { replyPattern: false });
+        reconnectOnDisconnect();
+        await rabbit.createQueue(queueName, {}, (msg, ack) => {
+          received.push(msg.content.toString());
+          ack();
+        });
+        await waitForConsumers(1);
+
+        await dropConnections([rabbit.consumeConnection, rabbit.publishConnection]);
+        await waitForConsumers(1);
+        await rabbit.publish(queueName, 'after');
+
+        for (let i = 0; i < 50 && !received.length; i++) {
+          await new Promise(r => setTimeout(r, 20));
+        }
+        received.should.have.length(1);
+        received[0].should.containEql('after');
+      });
+
+      it('should subscribe again when only the consume connection drops', async function() {
+        rabbit = new Rabbit(this.url, { replyPattern: false });
+        reconnectOnDisconnect();
+        await rabbit.createQueue(queueName, {}, (msg, ack) => ack());
+        await waitForConsumers(1);
+
+        await dropConnections([rabbit.consumeConnection]);
+        await waitForConsumers(1);
+      });
+
+      it('should keep working through repeated reconnects without leaving extra consumers', async function() {
+        rabbit = new Rabbit(this.url, { replyPattern: false });
+        reconnectOnDisconnect();
+        await rabbit.createQueue(queueName, {}, (msg, ack) => ack());
+
+        for (let i = 0; i < 3; i++) {
+          await dropConnections([rabbit.consumeConnection]);
+          await waitForConsumers(1);
+        }
+        await new Promise(r => setTimeout(r, 200));
+        (await consumerCount()).should.equal(1);
+      });
+
+      it('should subscribe again with the queue\'s own prefetch', async function() {
+        rabbit = new Rabbit(this.url, { replyPattern: false, prefetch: 1 });
+        reconnectOnDisconnect();
+        const queue = await rabbit.createQueue(queueName, { prefetch: 7 }, (msg, ack) => ack());
+        const prefetch = sandbox.spy(AmqpChannel.prototype, 'prefetch');
+        await dropConnections([rabbit.consumeConnection]);
+        await waitForConsumers(1);
+
+        queue.channel.should.equal(rabbit.consumeChannel);
+        prefetch.calledWith(7).should.be.true();
+      });
+
+      it('should not subscribe a queue that was unsubscribed', async function() {
+        rabbit = new Rabbit(this.url, { replyPattern: false });
+        reconnectOnDisconnect();
+        await rabbit.createQueue(queueName, {}, (msg, ack) => ack());
+        await rabbit.unsubscribe(queueName);
+        await waitForConsumers(0);
+
+        await dropConnections([rabbit.consumeConnection]);
+        await new Promise(r => setTimeout(r, 200));
+
+        (await consumerCount()).should.equal(0);
+      });
+
+      it('should bind a queue to its exchange again when the queue is gone with the connection', async function() {
+        const exclusive = `${queueName}_exclusive`;
+        const received = [];
+        rabbit = new Rabbit(this.url, { replyPattern: false });
+        reconnectOnDisconnect();
+        await rabbit.createQueue(exclusive, { exclusive: true, durable: false }, (msg, ack) => {
+          received.push(msg.content.toString());
+          ack();
+        });
+        await rabbit.bindToTopic(exclusive, `${exclusive}.topic`);
+
+        await dropConnections([rabbit.consumeConnection]);
+        await rabbit.publishTopic(`${exclusive}.topic`, 'after');
+
+        for (let i = 0; i < 50 && !received.length; i++) {
+          await new Promise(r => setTimeout(r, 20));
+        }
+        received.should.have.length(1);
+      });
+
+      it('should emit "connected" only after the consumers are back', async function() {
+        rabbit = new Rabbit(this.url, { replyPattern: false });
+        reconnectOnDisconnect();
+        await rabbit.createQueue(queueName, {}, (msg, ack) => ack());
+        await waitForConsumers(1);
+
+        const countOnConnected = new Promise<number>(resolve => rabbit.once('connected', () => resolve(consumerCount())));
+        await rabbit.consumeConnection.close();
+
+        (await countOnConnected).should.equal(1);
+      });
+
+      it('should subscribe again once the queue exists if rebinding the consumer fails', async function() {
+        this.timeout(8000);
+        rabbit = new Rabbit(this.url, { replyPattern: false });
+        reconnectOnDisconnect();
+        const queue = await rabbit.createQueue(queueName, {}, (msg, ack) => ack());
+        await waitForConsumers(1);
+        const subscribe = sandbox.stub(Queue.prototype, 'subscribe');
+        subscribe.onFirstCall().rejects(new Error('consume failed'));
+        subscribe.callThrough();
+
+        await dropConnections([rabbit.consumeConnection]);
+        await waitForConsumers(1, 200);
+
+        queue.subscribed.should.be.true();
+      });
+    });
+
     describe('when the broker cancels a consumer because its queue was deleted', function() {
       this.timeout(10000);
 
