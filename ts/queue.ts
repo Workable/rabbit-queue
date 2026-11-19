@@ -243,10 +243,21 @@ export default class Queue {
   }
 
   onMessage(msg: amqp.Message) {
+    // A reconnect moves the queue to a new channel (rebind) while handlers are still running. Delivery tags count per
+    // channel, so on the new one this tag is another message's or unknown, and an unknown tag makes the broker close
+    // the channel. The broker requeued the message when its own channel closed, so there is nothing left to ack.
+    const channel = this.channel;
     const ack = () => {
-      if (!this.options.noAck) {
-        this.channel.ack(msg);
+      if (this.options.noAck) {
+        return;
       }
+      if (channel !== this.channel) {
+        logger.warn(
+          `[${msg.properties.correlationId}] Not acking a message of queue ${this.name}: its channel was replaced`
+        );
+        return;
+      }
+      channel.ack(msg);
     };
     if (!msg) {
       return;
@@ -254,10 +265,10 @@ export default class Queue {
     // Deliveries can arrive between the consume-ok and an unsubscribe cancelling it; hand them back to the broker.
     if (!this.handler) {
       if (!this.options.noAck) {
-        this.channel.nack(msg, false, true);
+        channel.nack(msg, false, true);
       }
       // A consumer a second subscribe left behind would otherwise keep getting the message back.
-      this.channel.cancel(msg.fields.consumerTag).catch(() => undefined);
+      channel.cancel(msg.fields.consumerTag).catch(() => undefined);
       return;
     }
     this.handler(msg, async (error, reply) => {
