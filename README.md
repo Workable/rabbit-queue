@@ -297,6 +297,7 @@ const rabbit = new Rabbit(process.env.RABBIT_URL, { cancelConsumersOnSigterm: fa
 ### New in v5.13.x
 
 - A reconnect subscribes the queues again on its own. Before, every consumer stayed gone after a reconnect unless the `connected` handler created the queues again, so a process that didn't kept running and reported healthy with no consumers. The new consume channel gets each queue back (declared again, bindings added again, handler subscribed with the queue's own prefetch) before `connected` is emitted. A queue that fails to subscribe is retried like a consumer the broker cancelled. Creating a queue with a handler for a name that already has one on the same channel cancels the old consumer first, so a `connected` handler that creates the queues again doesn't leave two. Pass `resubscribeOnReconnect: false` to turn it off and manage the queues yourself on `connected`, as before.
+- v5.13.1: a message that was still being handled when the connection dropped is no longer acked on the new channel. Delivery tags count per channel, so that ack settled another message or made the broker close the channel (`PRECONDITION_FAILED - unknown delivery tag`). The ack is now skipped with a warning; the broker requeued the message when its channel closed.
 
 ### New in v5.12.x
 

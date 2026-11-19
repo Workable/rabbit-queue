@@ -747,6 +747,60 @@ describe('Test rabbit class', function() {
         (await consumerCount()).should.equal(1);
       });
 
+      async function waitFor(condition: () => boolean, attempts = 50) {
+        for (let attempt = 0; attempt < attempts && !condition(); attempt++) {
+          await new Promise(r => setTimeout(r, 20));
+        }
+        condition().should.be.true();
+      }
+
+      // Delivery tags count per channel, and a reconnect moves the queue to a new one. A round trip on the consume
+      // channel after an ack shows whether the broker accepted it: an unknown tag closes the channel.
+      it('should not ack a message from before the reconnect on the new channel', async function() {
+        const acks = [];
+        rabbit = new Rabbit(this.url, { replyPattern: false, prefetch: 2 });
+        reconnectOnDisconnect();
+        await rabbit.createQueue(queueName, {}, (msg, ack) => acks.push(ack));
+        await waitForConsumers(1);
+        await rabbit.publish(queueName, 'first');
+        await rabbit.publish(queueName, 'second');
+        await waitFor(() => acks.length === 2);
+        await dropConnections([rabbit.consumeConnection, rabbit.publishConnection]);
+        await waitFor(() => acks.length === 4);
+        const ackOnNewChannel = sandbox.spy(rabbit.consumeChannel, 'ack');
+
+        // Both redelivered messages are settled, so tag 2 of the old channel is unknown on the new one.
+        acks[2]();
+        acks[3]();
+        acks[1]();
+        const { messageCount } = await rabbit.consumeChannel.checkQueue(queueName);
+
+        ackOnNewChannel.calledTwice.should.be.true();
+        messageCount.should.equal(0);
+      });
+
+      it('should leave the redelivered message to its own ack', async function() {
+        const acks = [];
+        rabbit = new Rabbit(this.url, { replyPattern: false });
+        reconnectOnDisconnect();
+        await rabbit.createQueue(queueName, {}, (msg, ack) => acks.push(ack));
+        await waitForConsumers(1);
+        await rabbit.publish(queueName, 'only');
+        await waitFor(() => acks.length === 1);
+        await dropConnections([rabbit.consumeConnection, rabbit.publishConnection]);
+        await waitFor(() => acks.length === 2);
+        const ackOnNewChannel = sandbox.spy(rabbit.consumeChannel, 'ack');
+
+        // Both deliveries have tag 1: the first run's ack must not settle the second.
+        acks[0]();
+        await rabbit.consumeChannel.checkQueue(queueName);
+        ackOnNewChannel.called.should.be.false();
+
+        acks[1]();
+        await rabbit.consumeChannel.checkQueue(queueName);
+        ackOnNewChannel.calledOnce.should.be.true();
+      });
+
       it('should subscribe again with the queue\'s own prefetch', async function() {
         rabbit = new Rabbit(this.url, { replyPattern: false, prefetch: 1 });
         reconnectOnDisconnect();
